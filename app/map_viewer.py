@@ -5,6 +5,14 @@ from PyQt6.QtGui import QPixmap, QPainter, QPen, QBrush, QColor, QIcon, QFont # 
 from PyQt6.QtCore import Qt, QPointF, QRectF, pyqtSignal, QLineF
 import os # Import os
 from .tools.traffic_light_tool import TrafficLightState # Import the state class
+from styles.style_config import (
+    COUNTDOWN_COLOR, COUNTDOWN_BG_COLOR, TRAFFIC_LINE_TEMP_COLOR,
+    TRAFFIC_LINE_COLOR, RAIN_BRUSH_COLOR, RAIN_BRUSH_COLOR_FINAL,
+    RAIN_PEN_COLOR, BLOCK_WAY_COLOR, TEMP_POINT_COLOR,
+    START_POINT_COLOR, END_POINT_COLOR, PLACEHOLDER_COLOR,
+    TRAFFIC_LIGHT_LINE_COLOR, CAR_BLOCK_COLOR, CAR_BLOCK_PEN_COLOR,
+    DEFAULT_POINT_RADIUS
+)
 
 # Define keys for storing data on graphics items
 EFFECT_DATA_KEY = Qt.ItemDataRole.UserRole + 1 # Use UserRole + n for custom data
@@ -20,8 +28,6 @@ if TRAFFIC_LIGHT_PIXMAP.isNull():
 
 # --- Countdown Text Font ---
 COUNTDOWN_FONT = QFont("Arial", 10, QFont.Weight.Bold)
-COUNTDOWN_COLOR = QColor("white")
-COUNTDOWN_BG_COLOR = QColor(0, 0, 0, 150) # Semi-transparent black background
 # ---
 
 class MapViewer(QGraphicsView):
@@ -291,22 +297,22 @@ class MapViewer(QGraphicsView):
             # Let's assume move/release handles the line drawing after icon placement.
             # Press event starts the temporary line drawing.
             if not self._traffic_light_line_item: # Start drawing the line
-                 pen = QPen(QColor("orange"), 2, Qt.PenStyle.DashLine)
+                 pen = QPen(TRAFFIC_LINE_TEMP_COLOR, 2, Qt.PenStyle.DashLine)
                  self._traffic_light_line_item = QGraphicsLineItem(QLineF(self._traffic_light_line_start, pos))
                  self._traffic_light_line_item.setPen(pen)
                  self.scene.addItem(self._traffic_light_line_item)
                  event.accept()
         elif self._is_drawing_traffic:
             self._traffic_line_start = pos
-            pen = QPen(QColor("red"), 2, Qt.PenStyle.DashLine)
+            pen = QPen(TRAFFIC_LINE_COLOR, 2, Qt.PenStyle.DashLine)
             self._traffic_line_item = QGraphicsLineItem(QLineF(pos, pos))
             self._traffic_line_item.setPen(pen)
             self.scene.addItem(self._traffic_line_item)
             event.accept()
         elif self._is_drawing_rain_area:
             self._rain_area_start = pos
-            brush = QBrush(QColor(0, 0, 255, 50)) # Semi-transparent blue
-            pen = QPen(QColor("blue"), 1, Qt.PenStyle.DashLine)
+            brush = QBrush(RAIN_BRUSH_COLOR) # Semi-transparent blue
+            pen = QPen(RAIN_PEN_COLOR, 1, Qt.PenStyle.DashLine)
             self._rain_area_rect_item = QGraphicsRectItem(QRectF(pos, pos))
             self._rain_area_rect_item.setBrush(brush)
             self._rain_area_rect_item.setPen(pen)
@@ -314,7 +320,7 @@ class MapViewer(QGraphicsView):
             event.accept()
         elif self._is_drawing_block_way:
             self._block_way_start = pos
-            pen = QPen(QColor("black"), 3, Qt.PenStyle.DashLine) # Thicker dashed line
+            pen = QPen(BLOCK_WAY_COLOR, 3, Qt.PenStyle.DashLine) # Thicker dashed line
             self._block_way_line_item = QGraphicsLineItem(QLineF(pos, pos))
             self._block_way_line_item.setPen(pen)
             self.scene.addItem(self._block_way_line_item)
@@ -349,7 +355,7 @@ class MapViewer(QGraphicsView):
                 return
 
             # If not clearing, proceed with temporary point placement / panning
-            self.draw_point(pos, QColor("gray"), radius=6, temporary=True) # Show click feedback
+            self.draw_point(pos, TEMP_POINT_COLOR, radius=6, temporary=True) # Show click feedback
             # Let MainWindow find nearest node via callback
             self.on_point_selected(None, pos.x(), pos.y()) # Let MainWindow decide if it's start/end
             # Don't accept the event here, allow base class panning if no tool active
@@ -440,7 +446,7 @@ class MapViewer(QGraphicsView):
             self._traffic_line_item = None
 
             perm_line = QGraphicsLineItem(final_line)
-            perm_line.setPen(QPen(QColor("red"), 2))
+            perm_line.setPen(QPen(TRAFFIC_LINE_COLOR, 2))
             perm_line.setToolTip("Traffic Jam")
             self.scene.addItem(perm_line)
             self.traffic_jam_lines.append(perm_line) # Store permanent item
@@ -462,8 +468,8 @@ class MapViewer(QGraphicsView):
             self._rain_area_rect_item = None
 
             perm_rect = QGraphicsRectItem(final_rect)
-            perm_rect.setBrush(QBrush(QColor(0, 0, 255, 80))) # Slightly less transparent final
-            perm_rect.setPen(QPen(QColor("blue"), 1))
+            perm_rect.setBrush(QBrush(RAIN_BRUSH_COLOR_FINAL)) # Slightly less transparent final
+            perm_rect.setPen(QPen(RAIN_PEN_COLOR, 1))
             perm_rect.setToolTip("Rain Area")
             self.scene.addItem(perm_rect)
             self.rain_area_visuals.append(perm_rect) # Store permanent item
@@ -485,7 +491,7 @@ class MapViewer(QGraphicsView):
             self._block_way_line_item = None
 
             perm_line = QGraphicsLineItem(final_line)
-            perm_line.setPen(QPen(QColor("black"), 3)) # Solid black line
+            perm_line.setPen(QPen(BLOCK_WAY_COLOR, 3)) # Solid black line
             perm_line.setToolTip("Blocked Way")
             self.scene.addItem(perm_line)
             self.block_way_visuals.append(perm_line) # Store permanent item
@@ -534,12 +540,12 @@ class MapViewer(QGraphicsView):
         if point_type == "start":
             if self._permanent_start_item:
                 self.scene.removeItem(self._permanent_start_item)
-            self._permanent_start_item = self.draw_point(pos, QColor("green"), radius=7)
+            self._permanent_start_item = self.draw_point(pos, START_POINT_COLOR, radius=7)
             self._permanent_start_item.setToolTip(f"Start Point ({pos.x():.1f}, {pos.y():.1f})")
         elif point_type == "end":
             if self._permanent_end_item:
                 self.scene.removeItem(self._permanent_end_item)
-            self._permanent_end_item = self.draw_point(pos, QColor("blue"), radius=7)
+            self._permanent_end_item = self.draw_point(pos, END_POINT_COLOR, radius=7)
             self._permanent_end_item.setToolTip(f"End Point ({pos.x():.1f}, {pos.y():.1f})")
 
     def clear_permanent_point(self, point_type):
@@ -558,7 +564,7 @@ class MapViewer(QGraphicsView):
             # Draw a simple placeholder, e.g., a colored circle
             radius = 8
             ellipse = QGraphicsEllipseItem(pos.x() - radius, pos.y() - radius, 2 * radius, 2 * radius)
-            ellipse.setBrush(QBrush(QColor("purple"))) # Placeholder color
+            ellipse.setBrush(QBrush(PLACEHOLDER_COLOR)) # Placeholder color
             ellipse.setPen(QPen(Qt.PenStyle.NoPen))
             item = ellipse
         else:
@@ -576,8 +582,8 @@ class MapViewer(QGraphicsView):
     def draw_traffic_light_effect_line(self, p1: QPointF, p2: QPointF):
         """Draws the permanent effect line for a traffic light."""
         line = QGraphicsLineItem(QLineF(p1, p2))
-        # Use a distinct style, maybe orange?
-        pen = QPen(QColor("orange"), 2, Qt.PenStyle.SolidLine)
+        # Use a distinct style from centralized config
+        pen = QPen(TRAFFIC_LIGHT_LINE_COLOR, 2, Qt.PenStyle.SolidLine)
         line.setPen(pen)
         line.setToolTip("Traffic Light Effect Area")
         self.scene.addItem(line)
