@@ -1,0 +1,193 @@
+/* ========== Main Application Style ========== */
+QMainWindow {
+    background-color: #f5f6fa;
+}
+
+/* ========== Sidebar Style ========== */
+QWidget#sidebar {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
+                               stop:0 #2c3e50, stop:1 #34495e);
+    min-width: 250px;
+    padding: 15px;
+    border-right: 1px solid #2c3e50;
+}
+
+/* ========== Modern Button Styles ========== */
+QPushButton {
+    background-color: #3498db;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 15px;
+    font-size: 13px;
+    font-weight: 500;
+    min-width: 80px;
+    margin: 2px;
+}
+
+QPushButton:hover {
+    background-color: #3498db;
+}
+
+QPushButton:pressed {
+    background-color: #216897;
+}
+
+QPushButton:checked {
+    background-color: #27ae60;
+}
+
+QPushButton:disabled {
+    background-color: #bdc3c7;
+    color: #7f8c8d;
+}
+
+/* Group Box Style */
+QGroupBox {
+    border: 2px solid #bdc3c7;
+    border-radius: 6px;
+    margin-top: 10px;
+    padding-top: 10px;
+    font-weight: bold;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top center;
+    padding: 0 5px;
+    color: #2c3e50;
+    background-color: #ecf0f1;
+}
+
+/* Sidebar Style */
+QWidget#sidebar {
+    background-color: #34495e;
+    min-width: 200px;
+    padding: 10px;
+}
+
+/* Main Window Style */
+QMainWindow {
+    background-color: #ecf0f1;
+}
+
+/* Label Style */
+QLabel {
+    color: #2c3e50;
+    font-size: 13px;
+    padding: 2px;
+}
+
+/* Special Buttons */
+QPushButton#FindPathButton {
+    background-color: #e74c3c;
+    font-size: 14px;
+    font-weight: bold;
+    padding: 10px 20px;
+}
+
+QPushButton#FindPathButton:hover {
+    background-color: #c0392b;
+}
+
+/* Tool Buttons */
+QPushButton[tool="true"] {
+    background-color: #16a085;
+    padding: 6px 12px;
+}
+
+QPushButton[tool="true"]:hover {
+    background-color: #1abc9c;
+}
+
+QPushButton[tool="true"]:checked {
+    background-color: #f39c12;
+}
+
+/* Status Bar Style */
+QStatusBar {
+    background-color: #2c3e50;
+    color: white;
+}
+
+/* Scroll Area Style */
+QScrollArea {
+    border: none;
+}
+
+QScrollBar:vertical {
+    border: none;
+    background: #f0f0f0;
+    width: 10px;
+    margin: 0;
+}
+
+QScrollBar::handle:vertical {
+    background: #bdc3c7;
+    min-height: 20px;
+    border-radius: 5px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background: #95a5a6;
+}
+
+/* Map Viewer Style */
+QGraphicsView {
+    border: 2px solid #bdc3c7;
+    border-radius: 4px;
+}
+
+/* ComboBox Style */
+QComboBox {
+    border: 1px solid #bdc3c7;
+    border-radius: 3px;
+    padding: 5px;
+    min-width: 100px;
+    background-color: white;
+}
+
+QComboBox:hover {
+    border-color: #3498db;
+}
+
+QComboBox::drop-down {
+    border: none;
+    width: 20px;
+}
+
+QComboBox::down-arrow {
+    image: url(app/assets/icons/down-arrow.png);
+    width: 12px;
+    height: 12px;
+}
+
+/* SpinBox Style */
+QSpinBox {
+    border: 1px solid #bdc3c7;
+    border-radius: 3px;
+    padding: 5px;
+    background-color: white;
+}
+
+QSpinBox:hover {
+    border-color: #3498db;
+}
+
+/* Section Headers */
+QLabel[header="true"] {
+    font-size: 14px;
+    font-weight: bold;
+    color: #2c3e50;
+    padding: 5px 0;
+}
+
+/* Tools Section */
+QGroupBox[category="tools"] {
+    background-color: rgba(52, 152, 219, 0.1);
+}
+
+/* Effects Section */
+QGroupBox[category="effects"] {
+    background-color: rgba(46, 204, 113, 0.1);
+}

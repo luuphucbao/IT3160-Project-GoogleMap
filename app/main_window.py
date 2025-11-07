@@ -4,7 +4,7 @@ import numpy as np # Import numpy
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QHBoxLayout, QWidget,
                              QMessageBox, QGraphicsScene, QGraphicsRectItem,
                              QGraphicsPixmapItem, QGraphicsLineItem, QGraphicsSimpleTextItem,
-                             QGraphicsView) # Add QGraphicsView
+                             QGraphicsView, QSplitter) # Added QSplitter
 from PyQt6.QtCore import Qt, QPointF, QRectF, QTimer, QLineF # Added QLineF
 from PyQt6.QtGui import QColor, QBrush, QPen, QKeyEvent
 from .map_viewer import MapViewer, EFFECT_DATA_KEY
@@ -90,22 +90,31 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Offline Pathfinding App")
         self.setGeometry(100, 100, 1200, 700) # Adjusted size
 
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
-
-        main_layout = QHBoxLayout(central_widget)
+        # Create a QSplitter as the central widget
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.setCentralWidget(splitter)
 
         # --- Sidebar ---
         self.sidebar = Sidebar()
         self.sidebar.find_path_button.clicked.connect(self._trigger_pathfinding)
+        self.sidebar.setMinimumWidth(200)  # Set minimum width so it doesn't get too small
+        self.sidebar.setMaximumWidth(400)  # Set maximum width to maintain usability
 
         # --- Scene and Map Viewer ---
         self.scene = QGraphicsScene(self)
         map_file = os.path.join(os.path.dirname(__file__), "assets", "map.png")
         self.map_viewer = MapViewer(map_file, self._handle_point_selected, self.scene)
 
-        main_layout.addWidget(self.sidebar)
-        main_layout.addWidget(self.map_viewer, 1)
+        # Add widgets to splitter
+        splitter.addWidget(self.sidebar)
+        splitter.addWidget(self.map_viewer)
+
+        # Set initial sizes (e.g., 30% for sidebar, 70% for map)
+        splitter.setSizes([300, 700])
+
+        # Set stretch factors to make map viewer expand more than sidebar
+        splitter.setStretchFactor(0, 0)  # Sidebar stretches less
+        splitter.setStretchFactor(1, 1)  # Map viewer stretches more
 
         # --- Pathfinding Initialization ---
         db_file = os.path.join(os.path.dirname(__file__), "data", "graph.db")
