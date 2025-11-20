@@ -2,6 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import get_settings
 from app.api import auth
+# Uncomment when pathfinding is implemented:
+# from app.api import path
 
 settings = get_settings()
 
@@ -16,7 +18,7 @@ app = FastAPI(
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.allowed_origins_list,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -24,6 +26,8 @@ app.add_middleware(
 
 # Include routers
 app.include_router(auth.router)
+# Uncomment when pathfinding is implemented:
+# app.include_router(path.router)
 
 # Root endpoint
 @app.get("/")

@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     allowed_origins: str = "http://localhost:8080,http://127.0.0.1:8080"
     
     # Default Admin
-    default_admin_username: str = "admin"
+    default_admin_username: str = "admin1"
     default_admin_password: str = "admin123"
     
     class Config:
