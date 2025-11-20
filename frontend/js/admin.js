@@ -63,19 +63,34 @@ function showDashboard() {
 }
 
 /**
- * Initialize Leaflet map
+ * Initialize Leaflet map with local image
  */
 function initMap() {
-    // Coordinates for Hoàn Kiếm, Hanoi
-    const hoanKiemCenter = [21.0285, 105.8542];
+    // Map image dimensions (8900 x 7601 pixels from your document)
+    const mapWidth = 8900;
+    const mapHeight = 7601;
     
-    map = L.map('map').setView(hoanKiemCenter, 15);
+    // Create map with CRS.Simple for pixel coordinates
+    map = L.map('map', {
+        crs: L.CRS.Simple,
+        minZoom: -2,
+        maxZoom: 2,
+        zoomSnap: 0.25,
+        zoomDelta: 0.25
+    });
     
-    // Add OpenStreetMap tiles
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors',
-        maxZoom: 19,
-    }).addTo(map);
+    // Calculate bounds for the image
+    // Leaflet uses [y, x] format, so [height, width]
+    const bounds = [[0, 0], [mapHeight, mapWidth]];
+    
+    // Add the local map image
+    L.imageOverlay('../map/fixed.png', bounds).addTo(map);
+    
+    // Set the map bounds
+    map.fitBounds(bounds);
+    
+    // Set initial view to center of map
+    map.setView([mapHeight / 2, mapWidth / 2], -1);
     
     // Add click handler for scenario drawing
     map.on('click', onMapClick);

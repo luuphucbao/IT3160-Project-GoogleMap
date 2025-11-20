@@ -3,110 +3,88 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard - PathFinding App</title>
+    <title>PathFinding - Hoàn Kiếm Navigator</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="css/admin.css">
+    <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-    <!-- Login Modal -->
-    <div id="loginModal" class="modal">
-        <div class="modal-content">
-            <div class="login-header">
-                <h2>🔐 Admin Login</h2>
-                <p>PathFinding App - Hoàn Kiếm District</p>
-            </div>
-            <form id="loginForm">
-                <div class="form-group">
-                    <label for="username">Username</label>
-                    <input type="text" id="username" name="username" required autocomplete="username">
-                </div>
-                <div class="form-group">
-                    <label for="password">Password</label>
-                    <input type="password" id="password" name="password" required autocomplete="current-password">
-                </div>
-                <div id="loginError" class="error-message"></div>
-                <button type="submit" class="btn btn-primary">Login</button>
-            </form>
-        </div>
-    </div>
-
-    <!-- Main Admin Dashboard -->
-    <div id="adminDashboard" style="display: none;">
+    <div class="container">
         <!-- Header -->
-        <header class="dashboard-header">
+        <header class="header">
             <div class="header-content">
-                <h1>🗺️ Admin Dashboard</h1>
-                <div class="user-info">
-                    <span id="welcomeMessage">Welcome, Admin</span>
-                    <button id="logoutBtn" class="btn btn-secondary">Logout</button>
-                </div>
+                <h1>🗺️ Hoàn Kiếm Navigator</h1>
+                <p>Find the optimal path in Hoàn Kiếm District</p>
             </div>
         </header>
 
         <!-- Main Content -->
-        <div class="dashboard-container">
-            <!-- Sidebar Controls -->
-            <aside class="sidebar">
-                <div class="control-panel">
-                    <h3>Scenario Controls</h3>
+        <main class="main-content">
+            <!-- Control Panel -->
+            <aside class="control-panel">
+                <div class="panel-section">
+                    <h3>📍 Select Points</h3>
+                    <p class="instruction">Click on the map to select start and end points, or enter coordinates manually.</p>
                     
-                    <div class="control-section">
-                        <h4>🌧️ Rain Scenario</h4>
-                        <div class="button-group">
-                            <button class="btn btn-scenario" data-scenario="rain-light">
-                                Light Rain
-                            </button>
-                            <button class="btn btn-scenario" data-scenario="rain-medium">
-                                Medium Rain
-                            </button>
-                            <button class="btn btn-scenario" data-scenario="rain-heavy">
-                                Heavy Rain
-                            </button>
-                            <button class="btn btn-scenario" data-scenario="rain-extreme">
-                                Extreme Rain
-                            </button>
+                    <div class="input-group">
+                        <label for="startX">Start Point (X, Y)</label>
+                        <div class="coordinate-inputs">
+                            <input type="number" id="startX" placeholder="X" min="0" max="8900">
+                            <input type="number" id="startY" placeholder="Y" min="0" max="7601">
                         </div>
+                        <button id="selectStartBtn" class="btn btn-outline">📍 Click to Select on Map</button>
                     </div>
 
-                    <div class="control-section">
-                        <h4>🚫 Road Block</h4>
-                        <button class="btn btn-scenario" data-scenario="road-block">
-                            Add Road Block
-                        </button>
+                    <div class="input-group">
+                        <label for="endX">End Point (X, Y)</label>
+                        <div class="coordinate-inputs">
+                            <input type="number" id="endX" placeholder="X" min="0" max="8900">
+                            <input type="number" id="endY" placeholder="Y" min="0" max="7601">
+                        </div>
+                        <button id="selectEndBtn" class="btn btn-outline">📍 Click to Select on Map</button>
                     </div>
 
-                    <div class="control-section">
-                        <h4>🔄 Clear Scenarios</h4>
-                        <button id="clearAllBtn" class="btn btn-danger">
-                            Clear All Scenarios
-                        </button>
+                    <button id="findPathBtn" class="btn btn-primary">
+                        🔍 Find Optimal Path
+                    </button>
+
+                    <button id="clearBtn" class="btn btn-secondary">
+                        🔄 Clear Path
+                    </button>
+                </div>
+
+                <div class="panel-section">
+                    <h3>📊 Path Information</h3>
+                    <div id="pathInfo" class="path-info">
+                        <p class="no-data">No path calculated yet</p>
                     </div>
                 </div>
 
-                <div class="instructions">
-                    <h4>📝 Instructions</h4>
-                    <ol>
-                        <li>Select a scenario type</li>
-                        <li>Click two points on map to draw affected area</li>
-                        <li>Scenario will be applied to nearby edges</li>
-                        <li>Use Clear button to reset</li>
-                    </ol>
+                <div class="panel-section admin-link">
+                    <a href="admin.html" class="btn btn-link">
+                        🔐 Admin Dashboard
+                    </a>
                 </div>
             </aside>
 
             <!-- Map Container -->
-            <main class="map-container">
+            <div class="map-wrapper">
                 <div id="map"></div>
                 <div id="statusBar" class="status-bar">
-                    <span id="statusMessage">Ready. Select a scenario to begin.</span>
+                    <span id="statusMessage">Ready. Click on the map or enter coordinates to begin.</span>
                 </div>
-            </main>
-        </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+        <div class="spinner"></div>
+        <p>Finding optimal path...</p>
     </div>
 
     <!-- Scripts -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="js/auth.js"></script>
-    <script src="js/admin.js"></script>
+    <script src="js/map.js"></script>
+    <script src="js/pathfinding.js"></script>
 </body>
 </html>

@@ -13,7 +13,8 @@ A web-based pathfinding application for finding optimal routes in Hoàn Kiếm d
 - **Pathfinding**: Find optimal routes between two points using A* algorithm
 - **Dynamic Edge Weights**: Adjust path costs based on weather (rain) and road restrictions
 - **Admin Dashboard**: Manage scenarios (rain zones, road blocks) with authentication
-- **Interactive Map**: Leaflet.js-based visualization of routes and conditions
+- **Interactive Map**: Leaflet.js-based visualization using local map image (8900×7601 pixels)
+- **Pixel Coordinate System**: Direct mapping from database coordinates to map pixels
 
 ## Tech Stack
 - **Backend**: FastAPI (Python)
@@ -63,11 +64,13 @@ pathfinding-app/
 │   ├── css/
 │   │   ├── style.css             # User view styles
 │   │   └── admin.css             # Admin view styles
-│   └── js/
-│       ├── map.js                # Leaflet map for user view
-│       ├── pathfinding.js        # Pathfinding UI logic
-│       ├── admin.js              # Admin dashboard logic
-│       └── auth.js               # Authentication handling
+│   ├── js/
+│   │   ├── map.js                # Leaflet map module (local image)
+│   │   ├── pathfinding.js        # Pathfinding UI logic
+│   │   ├── admin.js              # Admin dashboard logic
+│   │   └── auth.js               # Authentication handling
+│   └── map/
+│       └── fixed.png             # Local map image (8900×7601)
 ├── scripts/
 │   ├── init_db.py                # Database initialization script
 │   └── load_data.py              # Load nodes/edges from JSON
@@ -223,10 +226,3 @@ CREATE TABLE admin (
 2. Make your changes
 3. Test thoroughly
 4. Submit for review
-
-## License
-Educational project for IT3160 - Introduction to AI course, HUST
-
----
-**Instructor**: Assoc. Prof. Dr. Trần Đình Khang  
-**Institution**: Hanoi University of Science and Technology
