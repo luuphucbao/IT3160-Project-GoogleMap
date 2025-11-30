@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import get_settings
 from app.api import auth
 from app.api import path
+from app.api import scenarios
 
 # Uncomment when pathfinding is implemented:
 # from app.api import path
@@ -26,6 +27,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(scenarios.router, prefix = "/api")
 # Include routers
 app.include_router(auth.router)
 # Uncomment when pathfinding is implemented:
