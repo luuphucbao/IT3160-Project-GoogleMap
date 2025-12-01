@@ -1,6 +1,6 @@
 """
 Pathfinding Service
-Implements A* algorithm for finding optimal paths on the graph
+Implements A* algorithm with In-Memory Graph capability for high performance
 """
 import heapq
 import math
@@ -11,11 +11,24 @@ class PathfindingService:
     """Service for pathfinding operations using A* algorithm"""
     
     def __init__(self):
-        self.graph = {}  # {node_id: {'pos': (x, y), 'neighbors': [(neighbor_id, weight), ...]}}
-        self.load_graph()
+        # 1. Lưu toạ độ Node: {node_id: (x, y)}
+        self.nodes: Dict[int, Tuple[float, float]] = {}
+        
+        # 2. Lưu cấu trúc kề (Ai nối với Ai): {node_id: [neighbor_id_1, neighbor_id_2]}
+        self.adj_list: Dict[int, List[int]] = {}
+        
+        # 3. Lưu trọng số GỐC (Backup): {(u, v): weight}
+        self.original_weights: Dict[Tuple[int, int], float] = {}
+        
+        # 4. Lưu trọng số HIỆN TẠI (Đang dùng để tìm đường): {(u, v): weight}
+        self.current_weights: Dict[Tuple[int, int], float] = {}
+        
+        # Tải dữ liệu 1 lần duy nhất khi khởi động
+        self.load_graph_from_db()
     
-    def load_graph(self):
-        """Load graph from database"""
+    def load_graph_from_db(self):
+        """Load graph from database into RAM (Run once on startup)"""
+        print("⚡ [RAM] Loading graph from Disk to Memory...")
         with get_db_connection() as conn:
             cursor = conn.cursor()
             
@@ -23,56 +36,79 @@ class PathfindingService:
             cursor.execute("SELECT id, x, y FROM nodes")
             nodes = cursor.fetchall()
             for node in nodes:
-                node_id = node['id']
-                self.graph[node_id] = {
-                    'pos': (node['x'],7801-node['y']),
-                    'neighbors': []
-                }
+                nid = node['id']
+                # Giữ nguyên logic lật trục Y của bạn
+                self.nodes[nid] = (node['x'], 7801 - node['y'])
+                self.adj_list[nid] = [] # Khởi tạo danh sách kề
             
             # Load edges
             cursor.execute("SELECT node_from, node_to, weight FROM edges")
             edges = cursor.fetchall()
             
             for edge in edges:
-                node_from = edge['node_from']
-                node_to = edge['node_to']
-                weight = edge['weight']
+                u = edge['node_from']
+                v = edge['node_to']
+                w = edge['weight']
                 
-                # Add bidirectional edges (assuming undirected graph)
-                if node_from in self.graph:
-                    self.graph[node_from]['neighbors'].append((node_to, weight))
-                if node_to in self.graph:
-                    self.graph[node_to]['neighbors'].append((node_from, weight))
+                # Chỉ thêm vào nếu cả 2 node đều tồn tại (tránh lỗi dữ liệu rác)
+                if u in self.nodes and v in self.nodes:
+                    # Xây dựng danh sách kề (Vô hướng -> 2 chiều)
+                    self.adj_list[u].append(v)
+                    self.adj_list[v].append(u)
+                    
+                    # Lưu trọng số gốc
+                    self.original_weights[(u, v)] = w
+                    self.original_weights[(v, u)] = w
         
-        print(f"✓ Loaded graph: {len(self.graph)} nodes")
+        # Khởi tạo trọng số hiện tại bằng trọng số gốc
+        self.current_weights = self.original_weights.copy()
+        
+        print(f"✓ [RAM] Loaded graph: {len(self.nodes)} nodes, {len(self.original_weights)//2} edges")
+
+    # --- CÁC HÀM MỚI ĐỂ SCENARIO SERVICE GỌI ---
     
+    def update_weight_in_ram(self, u: int, v: int, penalty: float):
+        """
+        Cập nhật trọng số trực tiếp trong RAM.
+        Được gọi bởi ScenarioService. KHÔNG CHẠM VÀO DB.
+        """
+        # Cập nhật cả 2 chiều (u->v và v->u)
+        if (u, v) in self.current_weights:
+            self.current_weights[(u, v)] += penalty
+        
+        if (v, u) in self.current_weights:
+            self.current_weights[(v, u)] += penalty
+
+    def reset_weights_in_ram(self):
+        """
+        Khôi phục trọng số về trạng thái gốc.
+        Chỉ mất O(1) hoặc O(N) rất nhanh, không cần đọc lại DB.
+        """
+        self.current_weights = self.original_weights.copy()
+        print("🔄 [RAM] Graph weights reset to original.")
+
+    # --- CÁC HÀM LOGIC A* (Đã sửa để dùng self.current_weights) ---
+
     def heuristic(self, node_id: int, goal_id: int) -> float:
-        """
-        Calculate heuristic (estimated cost) from node to goal
-        Uses Euclidean distance divided by 100 (as per your specification)
-        """
-        if node_id not in self.graph or goal_id not in self.graph:
+        if node_id not in self.nodes or goal_id not in self.nodes:
             return float('inf')
         
-        x1, y1 = self.graph[node_id]['pos']
-        x2, y2 = self.graph[goal_id]['pos']
+        x1, y1 = self.nodes[node_id]
+        x2, y2 = self.nodes[goal_id]
         
         distance = math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
         return distance / 100
     
     def find_nearest_node(self, x: float, y: float) -> Optional[int]:
-        """
-        Find the nearest node to the given coordinates
-        Returns node_id or None if no nodes exist
-        """
-        if not self.graph:
+        if not self.nodes:
             return None
         
         min_distance = float('inf')
         nearest_node = None
         
-        for node_id, data in self.graph.items():
-            node_x, node_y = data['pos']
+        # Duyệt qua dict nodes trong RAM
+        for node_id, pos in self.nodes.items():
+            node_x, node_y = pos
             distance = math.sqrt((node_x - x) ** 2 + (node_y - y) ** 2)
             
             if distance < min_distance:
@@ -82,109 +118,84 @@ class PathfindingService:
         return nearest_node
     
     def a_star(self, start_id: int, goal_id: int) -> Optional[Dict]:
-        """
-        A* pathfinding algorithm
-        Returns path information or None if no path exists
-        """
-        if start_id not in self.graph or goal_id not in self.graph:
+        if start_id not in self.nodes or goal_id not in self.nodes:
             return None
         
-        # Priority queue: (f_score, node_id)
         open_set = [(0, start_id)]
-        
-        # For path reconstruction
         came_from = {}
         
-        # Cost from start to each node
-        g_score = {node_id: float('inf') for node_id in self.graph}
+        g_score = {node_id: float('inf') for node_id in self.nodes}
         g_score[start_id] = 0
         
-        # Estimated total cost (f = g + h)
-        f_score = {node_id: float('inf') for node_id in self.graph}
+        f_score = {node_id: float('inf') for node_id in self.nodes}
         f_score[start_id] = self.heuristic(start_id, goal_id)
         
-        # Track visited nodes
         closed_set = set()
         
         while open_set:
-            # Get node with lowest f_score
             current_f, current = heapq.heappop(open_set)
             
-            # Goal reached!
             if current == goal_id:
                 return self._reconstruct_path(came_from, current)
             
-            # Skip if already processed
             if current in closed_set:
                 continue
             
             closed_set.add(current)
             
-            # Check all neighbors
-            for neighbor, edge_weight in self.graph[current]['neighbors']:
+            # Lấy danh sách hàng xóm từ adj_list
+            for neighbor in self.adj_list.get(current, []):
                 if neighbor in closed_set:
                     continue
                 
-                # Calculate tentative g_score
+                # QUAN TRỌNG: Lấy trọng số từ current_weights (RAM)
+                edge_weight = self.current_weights.get((current, neighbor), float('inf'))
+                
                 tentative_g = g_score[current] + edge_weight
                 
-                # If this path is better
                 if tentative_g < g_score[neighbor]:
-                    # Update path
                     came_from[neighbor] = current
                     g_score[neighbor] = tentative_g
                     f_score[neighbor] = tentative_g + self.heuristic(neighbor, goal_id)
-                    
-                    # Add to open set
                     heapq.heappush(open_set, (f_score[neighbor], neighbor))
         
-        # No path found
         return None
     
     def _reconstruct_path(self, came_from: Dict, current: int) -> Dict:
-        """Reconstruct path from came_from dictionary"""
         path = [current]
-        
         while current in came_from:
             current = came_from[current]
             path.append(current)
-        
         path.reverse()
         
-        # Convert to coordinate format
         path_coords = []
-        for node_id in path:
-            x, y = self.graph[node_id]['pos']
-            path_coords.append({'node_id': node_id, 'x': x, 'y': y})
+        total_distance_physical = 0
+        total_cost_weighted = 0
         
-        # Calculate total distance
-        total_distance = 0
-        for i in range(len(path) - 1):
-            x1, y1 = self.graph[path[i]]['pos']
-            x2, y2 = self.graph[path[i + 1]]['pos']
-            total_distance += math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+        for i, node_id in enumerate(path):
+            x, y = self.nodes[node_id]
+            path_coords.append({'node_id': node_id, 'x': x, 'y': y})
+            
+            if i < len(path) - 1:
+                next_node = path[i+1]
+                
+                # Tính khoảng cách vật lý (Dựa trên trọng số gốc - không bị ảnh hưởng bởi mưa)
+                w_orig = self.original_weights.get((node_id, next_node), 0)
+                total_distance_physical += w_orig
+                
+                # Tính chi phí thực tế (Dựa trên trọng số hiện tại - có mưa/tắc)
+                w_curr = self.current_weights.get((node_id, next_node), 0)
+                total_cost_weighted += w_curr
         
         return {
             'path': path_coords,
             'node_ids': path,
-            'distance': round(total_distance, 2),
-            'cost': round(total_distance / 100, 2),
+            'distance': round(total_distance_physical, 2), # Khoảng cách địa lý
+            'cost': round(total_cost_weighted / 100, 2),   # Chi phí (thời gian/xăng)
             'nodes': len(path)
         }
     
-    def find_path(self, start_x: float, start_y: float, 
-                  end_x: float, end_y: float) -> Optional[Dict]:
-        """
-        Find optimal path between two coordinate points
-        
-        Args:
-            start_x, start_y: Starting coordinates
-            end_x, end_y: Ending coordinates
-            
-        Returns:
-            Dictionary with path information or None if no path exists
-        """
-        # Find nearest nodes
+    def find_path(self, start_x: float, start_y: float, end_x: float, end_y: float) -> Optional[Dict]:
         start_node = self.find_nearest_node(start_x, start_y)
         end_node = self.find_nearest_node(end_x, end_y)
         
@@ -192,30 +203,28 @@ class PathfindingService:
             return None
         
         if start_node == end_node:
-            # Same node
-            x, y = self.graph[start_node]['pos']
+            x, y = self.nodes[start_node]
             return {
                 'path': [{'node_id': start_node, 'x': x, 'y': y}],
                 'node_ids': [start_node],
-                'distance': 0,
-                'cost': 0,
-                'nodes': 1
+                'distance': 0, 'cost': 0, 'nodes': 1
             }
         
-        # Run A* algorithm
         return self.a_star(start_node, end_node)
     
+    # Hàm này không còn dùng nữa vì ta update trực tiếp, nhưng để lại cho tương thích ngược nếu cần
     def reload_graph(self):
-        """Reload graph from database (call after edge weight updates)"""
-        self.graph = {}
-        self.load_graph()
+        self.nodes = {}
+        self.adj_list = {}
+        self.original_weights = {}
+        self.current_weights = {}
+        self.load_graph_from_db()
 
 
-# Create singleton instance
+# Singleton Instance
 _pathfinding_service = None
 
 def get_pathfinding_service() -> PathfindingService:
-    """Get or create pathfinding service instance"""
     global _pathfinding_service
     if _pathfinding_service is None:
         _pathfinding_service = PathfindingService()
