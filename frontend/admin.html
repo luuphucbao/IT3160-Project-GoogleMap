@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - PathFinding App</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+    <!-- Login Modal -->
+    <div id="loginModal" class="modal">
+        <div class="modal-content">
+            <div class="login-header">
+                <h2>🔐 Admin Login</h2>
+                <p>PathFinding App - Hoàn Kiếm District</p>
+            </div>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" name="username" required autocomplete="username">
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" required autocomplete="current-password">
+                </div>
+                <div id="loginError" class="error-message"></div>
+                <button type="submit" class="btn btn-primary">Login</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main Admin Dashboard -->
+    <div id="adminDashboard" style="display: none;">
+        <!-- Header -->
+        <header class="dashboard-header">
+            <div class="header-content">
+                <h1>🗺️ Admin Dashboard</h1>
+                <div class="user-info">
+                    <span id="welcomeMessage">Welcome, Admin</span>
+                    <button id="logoutBtn" class="btn btn-secondary">Logout</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <div class="dashboard-container">
+            <!-- Sidebar Controls -->
+            <aside class="sidebar">
+                <div class="control-panel">
+                    <h3>Scenario Controls</h3>
+                    
+                    <div class="control-section">
+                        <h4>🌧️ Rain Scenario</h4>
+                        <div class="button-group">
+                            <button class="btn btn-scenario" data-scenario="rain-light">
+                                Light Rain
+                            </button>
+                            <button class="btn btn-scenario" data-scenario="rain-medium">
+                                Medium Rain
+                            </button>
+                            <button class="btn btn-scenario" data-scenario="rain-heavy">
+                                Heavy Rain
+                            </button>
+                            <button class="btn btn-scenario" data-scenario="rain-extreme">
+                                Extreme Rain
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="control-section">
+                        <h4>🚫 Road Block</h4>
+                        <button class="btn btn-scenario" data-scenario="road-block">
+                            Add Road Block
+                        </button>
+                    </div>
+
+                    <div class="control-section">
+                        <h4>🔄 Clear Scenarios</h4>
+                        <button id="clearAllBtn" class="btn btn-danger">
+                            Clear All Scenarios
+                        </button>
+                    </div>
+                </div>
+
+                <div class="instructions">
+                    <h4>📝 Instructions</h4>
+                    <ol>
+                        <li>Select a scenario type</li>
+                        <li>Click two points on map to draw affected area</li>
+                        <li>Scenario will be applied to nearby edges</li>
+                        <li>Use Clear button to reset</li>
+                    </ol>
+                </div>
+            </aside>
+
+            <!-- Map Container -->
+            <main class="map-container">
+                <div id="map"></div>
+                <div id="statusBar" class="status-bar">
+                    <span id="statusMessage">Ready. Select a scenario to begin.</span>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/admin.js"></script>
+</body>
+</html>
