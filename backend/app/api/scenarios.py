@@ -32,8 +32,8 @@ async def create_scenario(
     # Lưu ý: Truyền pf_service vào để ScenarioService truy cập nodes/weights
     affected_edges = sc_service.calculate_affected_edges(
         pathfinding_service=pf_service,
-        line_p1=(request.line_start.lat, request.line_start.lng),
-        line_p2=(request.line_end.lat, request.line_end.lng),
+        line_p1=(request.line_start.lng, request.line_start.lat),
+        line_p2=(request.line_end.lng, request.line_end.lat),
         threshold=request.threshold
     )
     

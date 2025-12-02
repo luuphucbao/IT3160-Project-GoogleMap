@@ -67,13 +67,13 @@ function showDashboard() {
  */
 function initMap() {
     // Map image dimensions (8900 x 7601 pixels from your document)
-    const mapWidth = 8900;
-    const mapHeight = 7601;
+    const mapWidth = 8500;
+    const mapHeight = 7801;
     
     // Create map with CRS.Simple for pixel coordinates
     map = L.map('map', {
         crs: L.CRS.Simple,
-        minZoom: -2,
+        minZoom: -3,
         maxZoom: 2,
         zoomSnap: 0.25,
         zoomDelta: 0.25
