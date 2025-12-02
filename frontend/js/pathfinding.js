@@ -66,7 +66,7 @@ function setupEventListeners() {
     clearBtn.addEventListener('click', clearAll);
     
     // NEW: Toggle Nodes button
-    showNodesBtn.addEventListener('click', toggleShowNodes); 
+    // showNodesBtn.addEventListener('click', toggleShowNodes); 
     
     // Map click handler
     MapModule.onMapClick((x, y) => {
@@ -91,6 +91,7 @@ function setupEventListeners() {
 /**
  * Find optimal path between start and end points
  */
+
 async function findPath() {
     // Validate inputs
     const startX = parseFloat(startXInput.value);
@@ -153,6 +154,7 @@ async function findPath() {
 /**
  * NEW: Toggle visibility of all nodes from the database
  */
+
 function toggleShowNodes() {
     if (nodesShown) {
         // Hide nodes
@@ -171,6 +173,7 @@ function toggleShowNodes() {
 /**
  * NEW: Fetch all nodes from API and display them on the map
  */
+
 async function fetchAndShowNodes() {
     showLoading(true);
     updateStatus('⏳ Đang tải dữ liệu nodes...');
