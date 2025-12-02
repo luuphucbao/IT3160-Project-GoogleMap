@@ -187,7 +187,10 @@ async function fetchAndShowNodes() {
         
         if (data.nodes && data.nodes.length > 0) {
             // Use the exported function from MapModule (already in map.js)
-            MapModule.showAllNodes(data.nodes); 
+            const correctedNodes = data.nodes.map(node => ({ ...node, y: 7801 - node.y }));
+
+            // Use the exported function from MapModule (already in map.js)
+            MapModule.showAllNodes(correctedNodes);
             
             nodesShown = true;
             showNodesBtn.textContent = '✅ Hide All Nodes';
