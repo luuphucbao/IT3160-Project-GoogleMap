@@ -23,7 +23,7 @@ async def find_path(
     Returns path information including:
     - path: List of nodes with coordinates
     - distance: Total distance in pixels
-    - cost: Calculated cost (distance/100 + penalties)
+    - cost: Calculated cost (distance + penalties)
     - nodes: Number of nodes in path
     """
     # Get pathfinding service

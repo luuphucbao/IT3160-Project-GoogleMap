@@ -215,6 +215,7 @@ async function fetchAndShowNodes() {
 /**
  * Generate mock path data for demonstration
  */
+/*
 function generateMockPath(startX, startY, endX, endY) {
     // Generate some intermediate points for a curved path
     const numPoints = 5;
@@ -240,23 +241,23 @@ function generateMockPath(startX, startY, endX, endY) {
         cost: (distance / 100).toFixed(2)
     };
 }
-
+*/
 /**
  * Display path information
  */
 function displayPathInfo(data) {
     pathInfo.innerHTML = `
         <div class="info-item">
-            <span class="info-label">Distance:</span>
-            <span class="info-value">${data.distance} pixels</span>
+            <span class="info-label">Distance (mét):</span>
+            <span class="info-value">${data.distance}</span>
         </div>
         <div class="info-item">
             <span class="info-label">Nodes:</span>
             <span class="info-value">${data.nodes}</span>
         </div>
         <div class="info-item">
-            <span class="info-label">Cost:</span>
-            <span class="info-value">${data.cost}</span>
+            <span class="info-label">Time (giây):</span>
+            <span class="info-value">${data.cost} </span>
         </div>
     `;
 }

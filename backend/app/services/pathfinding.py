@@ -2,6 +2,7 @@
 Pathfinding Service
 Implements A* algorithm with In-Memory Graph capability for high performance
 """
+import ast
 import heapq
 import math
 from typing import List, Tuple, Dict, Optional
@@ -97,7 +98,7 @@ class PathfindingService:
         x2, y2 = self.nodes[goal_id]
         
         distance = math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
-        return distance / 100
+        return distance 
     
     def find_nearest_node(self, x: float, y: float) -> Optional[int]:
         if not self.nodes:
@@ -186,12 +187,14 @@ class PathfindingService:
                 # Tính chi phí thực tế (Dựa trên trọng số hiện tại - có mưa/tắc)
                 w_curr = self.current_weights.get((node_id, next_node), 0)
                 total_cost_weighted += w_curr
-        
+        total_cost_weighted=round(total_cost_weighted*0.25/2, 2)
+        if (total_cost_weighted>100000):
+            total_cost_weighted="Blocked"
         return {
             'path': path_coords,
             'node_ids': path,
-            'distance': round(total_distance_physical, 2), # Khoảng cách địa lý
-            'cost': round(total_cost_weighted, 2),   # Chi phí (thời gian/xăng)
+            'distance': round(total_distance_physical*0.25, 2), # Khoảng cách địa lý
+            'cost': total_cost_weighted,   # Chi phí (thời gian/xăng)
             'nodes': len(path)
         }
     

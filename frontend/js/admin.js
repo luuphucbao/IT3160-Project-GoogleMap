@@ -362,7 +362,7 @@ function getScenarioData(scenario) {
         'road-block': {
             name: 'Road Block',
             type: 'block',
-            penalty: 100,
+            penalty: 10000,
             threshold: 50,
             // Giữ nguyên màu đỏ cảnh báo, hoặc dùng màu đỏ cam sáng hơn (#ef4444 là ok)
             color: '#ef4444' 
