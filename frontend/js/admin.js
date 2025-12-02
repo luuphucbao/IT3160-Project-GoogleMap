@@ -332,35 +332,40 @@ function getScenarioData(scenario) {
             type: 'rain',
             penalty: 0.5,
             threshold: 30,
-            color: '#3b82f6'
+            // Đổi sang màu xanh da trời sáng (Sky Blue) để tạo cảm giác nhẹ nhàng
+            color: '#60a5fa' 
         },
         'rain-medium': {
             name: 'Medium Rain',
             type: 'rain',
             penalty: 1.0,
             threshold: 50,
-            color: '#2563eb'
+            // Màu xanh dương tiêu chuẩn, rực rỡ và dễ nhìn
+            color: '#2563eb' 
         },
         'rain-heavy': {
             name: 'Heavy Rain',
             type: 'rain',
             penalty: 2.0,
             threshold: 70,
-            color: '#1e40af'
+            // Màu xanh đậm hơn hẳn, báo hiệu mức độ nghiêm trọng
+            color: '#14358eff' 
         },
         'rain-extreme': {
             name: 'Extreme Rain',
             type: 'rain',
             penalty: 5.0,
             threshold: 100,
-            color: '#1e3a8a'
+            // Màu xanh tím than (gần như đen), tạo cảm giác bão tố/nguy hiểm
+            color: '#663adfff' 
         },
         'road-block': {
             name: 'Road Block',
             type: 'block',
             penalty: 9999,
             threshold: 50,
-            color: '#ef4444'
+            // Giữ nguyên màu đỏ cảnh báo, hoặc dùng màu đỏ cam sáng hơn (#ef4444 là ok)
+            color: '#ef4444' 
         }
     };
     

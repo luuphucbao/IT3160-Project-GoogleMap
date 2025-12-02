@@ -191,7 +191,7 @@ class PathfindingService:
             'path': path_coords,
             'node_ids': path,
             'distance': round(total_distance_physical, 2), # Khoảng cách địa lý
-            'cost': round(total_cost_weighted / 100, 2),   # Chi phí (thời gian/xăng)
+            'cost': round(total_cost_weighted, 2),   # Chi phí (thời gian/xăng)
             'nodes': len(path)
         }
     
