@@ -83,6 +83,12 @@ function initMap() {
     // Leaflet uses [y, x] format, so [height, width]
     const bounds = [[0, 0], [mapHeight, mapWidth]];
     
+    // Set the map bounds to prevent dragging outside the image
+    map.setMaxBounds(bounds);
+    map.on('drag', function() {
+        map.panInsideBounds(bounds, { animate: false });
+    });
+
     // Add the local map image
     L.imageOverlay('../map/fixed.png', bounds).addTo(map);
     

@@ -33,6 +33,12 @@ function initializeMap() {
     // Calculate bounds for the image
     const bounds = [[0, 0], [MAP_CONFIG.height, MAP_CONFIG.width]];
     
+    // Set the map bounds to prevent dragging outside the image
+    map.setMaxBounds(bounds);
+    map.on('drag', function() {
+        map.panInsideBounds(bounds, { animate: false });
+    });
+
     // Add the local map image
     L.imageOverlay(MAP_CONFIG.imageUrl, bounds).addTo(map);
     
