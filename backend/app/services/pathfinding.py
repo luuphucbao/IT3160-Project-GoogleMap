@@ -74,10 +74,10 @@ class PathfindingService:
         """
         # Cập nhật cả 2 chiều (u->v và v->u)
         if (u, v) in self.current_weights:
-            self.current_weights[(u, v)] += penalty
+            self.current_weights[(u, v)] *= penalty
         
         if (v, u) in self.current_weights:
-            self.current_weights[(v, u)] += penalty
+            self.current_weights[(v, u)] *= penalty
 
     def reset_weights_in_ram(self):
         """
