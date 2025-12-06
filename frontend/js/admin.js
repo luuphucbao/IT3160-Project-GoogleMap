@@ -326,6 +326,9 @@ async function applyScenario() {
         // // Deactivate scenario button
         // scenarioButtons.forEach(b => b.classList.remove('active'));
         // currentScenario = null;
+
+        // Signal other tabs that scenarios have changed
+        localStorage.setItem('scenarios_updated', new Date().toISOString());
         
     } catch (error) {
         console.error('Error applying scenario:', error);
@@ -431,6 +434,9 @@ clearAllBtn.addEventListener('click', async () => {
         scenarioButtons.forEach(b => b.classList.remove('active'));
         
         updateStatus(`Cleared ${successCount} scenarios successfully.`);
+
+        // Signal other tabs that scenarios have changed
+        localStorage.setItem('scenarios_updated', new Date().toISOString());
     } catch (error) {
         console.error('Error clearing scenarios:', error);
         updateStatus('Error clearing scenarios. Please try again.');

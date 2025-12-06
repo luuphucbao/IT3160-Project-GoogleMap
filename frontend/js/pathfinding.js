@@ -86,6 +86,16 @@ function setupEventListeners() {
             updateStatus('End point selected. Click "Find Optimal Path" to calculate route.');
         }
     });
+
+    // Listen for storage changes to auto-refresh path on scenario updates
+    window.addEventListener('storage', (e) => {
+        if (e.key === 'scenarios_updated') {
+            if (currentPath) {
+                updateStatus('🔄 Scenarios updated by admin. Recalculating path...');
+                findPath();
+            }
+        }
+    });
 }
 
 /**
