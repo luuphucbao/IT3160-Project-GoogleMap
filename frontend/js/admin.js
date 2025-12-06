@@ -323,9 +323,9 @@ async function applyScenario() {
         clearTempMarkers();
         clickPoints = [];
         
-        // Deactivate scenario button
-        scenarioButtons.forEach(b => b.classList.remove('active'));
-        currentScenario = null;
+        // // Deactivate scenario button
+        // scenarioButtons.forEach(b => b.classList.remove('active'));
+        // currentScenario = null;
         
     } catch (error) {
         console.error('Error applying scenario:', error);
