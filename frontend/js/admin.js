@@ -157,20 +157,25 @@ logoutBtn.addEventListener('click', async () => {
  */
 scenarioButtons.forEach(btn => {
     btn.addEventListener('click', () => {
-        // Remove active class from all buttons
-        scenarioButtons.forEach(b => b.classList.remove('active'));
-        
-        // Add active class to clicked button
-        btn.classList.add('active');
-        
-        // Set current scenario
-        currentScenario = btn.dataset.scenario;
-        
-        // Reset click points
+        const isAlreadyActive = btn.classList.contains('active');
+
+        // Luôn xóa các điểm và marker tạm thời khi có tương tác với nút kịch bản
         clickPoints = [];
         clearTempMarkers();
-        
-        updateStatus(`${btn.textContent.trim()} selected. Click two points on the map to define affected area.`);
+
+        // Xóa trạng thái active khỏi tất cả các nút
+        scenarioButtons.forEach(b => b.classList.remove('active'));
+
+        if (isAlreadyActive) {
+            // Nếu nút đã được chọn, hủy chọn nó
+            currentScenario = null;
+            updateStatus('Đã hủy chọn kịch bản. Chọn một kịch bản để bắt đầu.');
+        } else {
+            // Nếu nút chưa được chọn, hãy kích hoạt nó
+            btn.classList.add('active');
+            currentScenario = btn.dataset.scenario;
+            updateStatus(`${btn.textContent.trim()} đã được chọn. Nhấp vào hai điểm trên bản đồ để xác định khu vực bị ảnh hưởng.`);
+        }
     });
 });
 
