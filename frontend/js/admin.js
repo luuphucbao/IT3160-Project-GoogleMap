@@ -66,10 +66,6 @@ function showDashboard() {
  * Initialize Leaflet map with local image
  */
 function initMap() {
-    // Map image dimensions (8900 x 7601 pixels from your document)
-    const mapWidth = 8500;
-    const mapHeight = 7801;
-    
     // Create map with CRS.Simple for pixel coordinates
     map = L.map('map', {
         crs: L.CRS.Simple,
@@ -81,7 +77,7 @@ function initMap() {
     
     // Calculate bounds for the image
     // Leaflet uses [y, x] format, so [height, width]
-    const bounds = [[0, 0], [mapHeight, mapWidth]];
+    const bounds = [[0, 0], [AppConfig.MAP_HEIGHT, AppConfig.MAP_WIDTH]];
     
     // Set the map bounds to prevent dragging outside the image
     map.setMaxBounds(bounds);
@@ -90,13 +86,13 @@ function initMap() {
     });
 
     // Add the local map image
-    L.imageOverlay('../map/fixed.png', bounds).addTo(map);
+    L.imageOverlay(AppConfig.MAP_IMAGE_URL_ADMIN, bounds).addTo(map);
     
     // Set the map bounds
     map.fitBounds(bounds);
     
     // Set initial view to center of map
-    map.setView([mapHeight / 2, mapWidth / 2], -1);
+    map.setView([AppConfig.MAP_HEIGHT / 2, AppConfig.MAP_WIDTH / 2], -1);
     
     // Add click handler for scenario drawing
     map.on('click', onMapClick);

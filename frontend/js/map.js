@@ -4,12 +4,6 @@
  */
 
 // Map configuration
-const MAP_CONFIG = {
-    width: 8500,
-    height: 7801,
-    imageUrl: '../../map/fixed.png'
-};
-
 let map;
 let pathLayer;
 let startMarker;
@@ -19,7 +13,7 @@ let nodeLayer; // <-- added to hold all nodes layer
 /**
  * Initialize the map with local image
  */
-function initializeMap() {
+function initializeMap(imageUrl) {
     // Create map with CRS.Simple for pixel coordinates
     map = L.map('map', {
         crs: L.CRS.Simple,
@@ -31,7 +25,7 @@ function initializeMap() {
     });
     
     // Calculate bounds for the image
-    const bounds = [[0, 0], [MAP_CONFIG.height, MAP_CONFIG.width]];
+    const bounds = [[0, 0], [AppConfig.MAP_HEIGHT, AppConfig.MAP_WIDTH]];
     
     // Set the map bounds to prevent dragging outside the image
     map.setMaxBounds(bounds);
@@ -40,13 +34,13 @@ function initializeMap() {
     });
 
     // Add the local map image
-    L.imageOverlay(MAP_CONFIG.imageUrl, bounds).addTo(map);
+    L.imageOverlay(imageUrl, bounds).addTo(map);
     
     // Set the map bounds
     map.fitBounds(bounds);
     
     // Set initial view to center
-    map.setView([MAP_CONFIG.height / 2, MAP_CONFIG.width / 2], -1);
+    map.setView([AppConfig.MAP_HEIGHT / 2, AppConfig.MAP_WIDTH / 2], -1);
     
     // Add attribution
     L.control.attribution({

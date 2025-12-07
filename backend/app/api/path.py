@@ -4,15 +4,18 @@ Pathfinding API Endpoints
 from fastapi import APIRouter, HTTPException, Query
 from app.services.pathfinding import get_pathfinding_service
 from app.database import get_db_connection
+from app.config import get_settings
 router = APIRouter(prefix="/api", tags=["Pathfinding"])
+
+settings = get_settings()
 
 
 @router.get("/path")
 async def find_path(
-    start_x: float = Query(..., description="Starting X coordinate (0-8500)", ge=0, le=8500),
-    start_y: float = Query(..., description="Starting Y coordinate (0-7801)", ge=0, le=7801),
-    end_x: float = Query(..., description="Ending X coordinate (0-8500)", ge=0, le=8500),
-    end_y: float = Query(..., description="Ending Y coordinate (0-7801)", ge=0, le=7801)
+    start_x: float = Query(..., description=f"Starting X coordinate (0-{settings.MAP_WIDTH})", ge=0, le=settings.MAP_WIDTH),
+    start_y: float = Query(..., description=f"Starting Y coordinate (0-{settings.MAP_HEIGHT})", ge=0, le=settings.MAP_HEIGHT),
+    end_x: float = Query(..., description=f"Ending X coordinate (0-{settings.MAP_WIDTH})", ge=0, le=settings.MAP_WIDTH),
+    end_y: float = Query(..., description=f"Ending Y coordinate (0-{settings.MAP_HEIGHT})", ge=0, le=settings.MAP_HEIGHT)
 ):
     """
     Find optimal path between two points using A* algorithm

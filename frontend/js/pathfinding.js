@@ -31,7 +31,7 @@ let nodesShown = false; // <-- NEW: State to track node visibility
  */
 function init() {
     // Initialize map
-    MapModule.init();
+    MapModule.init(AppConfig.MAP_IMAGE_URL_USER);
     
     // Setup event listeners
     setupEventListeners();
@@ -200,7 +200,7 @@ async function fetchAndShowNodes() {
         
         if (data.nodes && data.nodes.length > 0) {
             // Use the exported function from MapModule (already in map.js)
-            const correctedNodes = data.nodes.map(node => ({ ...node, y: 7801 - node.y }));
+            const correctedNodes = data.nodes.map(node => ({ ...node, y: AppConfig.MAP_HEIGHT - node.y }));
 
             // Use the exported function from MapModule (already in map.js)
             MapModule.showAllNodes(correctedNodes);

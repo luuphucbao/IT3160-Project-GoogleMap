@@ -23,7 +23,9 @@ class Settings(BaseSettings):
     # Default Admin
     default_admin_username: str = "admin1"
     default_admin_password: str = "admin123"
-    
+    # Map config
+    MAP_WIDTH: int = 8500
+    MAP_HEIGHT: int = 7801
     class Config:
         env_file = ".env"
         case_sensitive = False

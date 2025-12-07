@@ -7,6 +7,9 @@ import heapq
 import math
 from typing import List, Tuple, Dict, Optional
 from app.database import get_db_connection
+from app.config import get_settings
+
+settings = get_settings()
 
 class PathfindingService:
     """Service for pathfinding operations using A* algorithm"""
@@ -39,7 +42,7 @@ class PathfindingService:
             for node in nodes:
                 nid = node['id']
                 # Giữ nguyên logic lật trục Y của bạn
-                self.nodes[nid] = (node['x'], 7801 - node['y'])
+                self.nodes[nid] = (node['x'], settings.MAP_HEIGHT - node['y'])
                 self.adj_list[nid] = [] # Khởi tạo danh sách kề
             
             # Load edges
