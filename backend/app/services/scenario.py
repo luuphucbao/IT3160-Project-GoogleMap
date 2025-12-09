@@ -35,17 +35,8 @@ class ScenarioService:
         line_vec_y = line_p2[1] - line_p1[1]
         len_sq = line_vec_x ** 2 + line_vec_y ** 2
         
-        # 3. Duyệt qua tất cả các cạnh trong RAM
-        # Sử dụng Set để tránh duyệt trùng (vì đồ thị vô hướng lưu cả u->v và v->u)
-        checked_edges = set()
-        
+        # 3. Duyệt qua tất cả các cạnh có hướng trong RAM
         for (u, v), _ in edges_dict.items():
-            # Sắp xếp để đảm bảo (u, v) giống (v, u)
-            edge_key = tuple(sorted((u, v)))
-            if edge_key in checked_edges:
-                continue
-            checked_edges.add(edge_key)
-            
             # Lấy toạ độ Node từ RAM
             # Lưu ý: pathfinding_service.nodes đã chứa toạ độ visual (đã lật Y), 
             # nên ta dùng trực tiếp để so sánh với click chuột.

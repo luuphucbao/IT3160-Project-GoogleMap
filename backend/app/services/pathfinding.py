@@ -58,16 +58,16 @@ class PathfindingService:
                 if u in self.nodes and v in self.nodes:
                     # Xây dựng danh sách kề (Vô hướng -> 2 chiều)
                     self.adj_list[u].append(v)
-                    self.adj_list[v].append(u)
+                    #self.adj_list[v].append(u)
                     
                     # Lưu trọng số gốc
                     self.original_weights[(u, v)] = w
-                    self.original_weights[(v, u)] = w
+                    #self.original_weights[(v, u)] = w
         
         # Khởi tạo trọng số hiện tại bằng trọng số gốc
         self.current_weights = self.original_weights.copy()
         
-        print(f"✓ [RAM] Loaded graph: {len(self.nodes)} nodes, {len(self.original_weights)//2} edges")
+        print(f"✓ [RAM] Loaded graph: {len(self.nodes)} nodes, {len(self.original_weights)} edges")
 
     # --- CÁC HÀM MỚI ĐỂ SCENARIO SERVICE GỌI ---
     
@@ -76,12 +76,9 @@ class PathfindingService:
         Cập nhật trọng số trực tiếp trong RAM.
         Được gọi bởi ScenarioService. KHÔNG CHẠM VÀO DB.
         """
-        # Cập nhật cả 2 chiều (u->v và v->u)
+        # Cập nhật trọng số cho cạnh có hướng (u, v)
         if (u, v) in self.current_weights:
             self.current_weights[(u, v)] *= penalty
-        
-        if (v, u) in self.current_weights:
-            self.current_weights[(v, u)] *= penalty
 
     def reset_weights_in_ram(self):
         """
