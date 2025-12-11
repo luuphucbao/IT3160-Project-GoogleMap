@@ -15,7 +15,9 @@ async def find_path(
     start_x: float = Query(..., description=f"Starting X coordinate (0-{settings.MAP_WIDTH})", ge=0, le=settings.MAP_WIDTH),
     start_y: float = Query(..., description=f"Starting Y coordinate (0-{settings.MAP_HEIGHT})", ge=0, le=settings.MAP_HEIGHT),
     end_x: float = Query(..., description=f"Ending X coordinate (0-{settings.MAP_WIDTH})", ge=0, le=settings.MAP_WIDTH),
-    end_y: float = Query(..., description=f"Ending Y coordinate (0-{settings.MAP_HEIGHT})", ge=0, le=settings.MAP_HEIGHT)
+    end_y: float = Query(..., description=f"Ending Y coordinate (0-{settings.MAP_HEIGHT})", ge=0, le=settings.MAP_HEIGHT),
+    vehicle: str = Query("foot", description="Vehicle type: 'car' or 'foot'"),
+    speed: float = Query(1.0, description="Speed of vehicle (m/s)")
 ):
     """
     Find optimal path between two points using A* algorithm
@@ -33,7 +35,7 @@ async def find_path(
     service = get_pathfinding_service()
     
     # Find path
-    result = service.find_path(start_x, start_y, end_x, end_y)
+    result = service.find_path(start_x, start_y, end_x, end_y, vehicle, speed)
     
     if result is None:
         raise HTTPException(

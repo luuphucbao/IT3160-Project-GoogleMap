@@ -30,7 +30,7 @@ async def create_scenario(
     
     # Bước 1: Tính toán xem cạnh nào bị dính (Dùng data RAM để tính)
     # Lưu ý: Truyền pf_service vào để ScenarioService truy cập nodes/weights
-    affected_edges = sc_service.calculate_affected_edges(
+    affected_edges_map = sc_service.calculate_affected_edges(
         pathfinding_service=pf_service,
         line_p1=(request.line_start.lng, request.line_start.lat),
         line_p2=(request.line_end.lng, request.line_end.lat),
@@ -38,17 +38,20 @@ async def create_scenario(
     )
     
     # Bước 2: Cập nhật trọng số ngay lập tức vào RAM
-    for u, v in affected_edges:
-        pf_service.update_weight_in_ram(u, v, request.penalty_weight)
+    total_affected = 0
+    for v_type, edges in affected_edges_map.items():
+        total_affected += len(edges)
+        for u, v in edges:
+            pf_service.update_weight_in_ram(u, v, request.penalty_weight, v_type)
         
     # Bước 3: Lưu lại kịch bản để quản lý
-    saved_scenario = sc_service.add_scenario(request.dict(), affected_edges)
+    saved_scenario = sc_service.add_scenario(request.dict(), affected_edges_map)
     
-    print(f"✅ Applied scenario {request.scenario_type} to {len(affected_edges)} edges.")
+    print(f"✅ Applied scenario {request.scenario_type} to {total_affected} edges.")
     
     return ScenarioResponse(
         message="Scenario applied successfully (In-Memory)",
-        affected_edges=len(affected_edges),
+        affected_edges=total_affected,
         scenario_type=request.scenario_type
     )
 
@@ -77,8 +80,9 @@ async def delete_scenario(
     # (Để đảm bảo nếu còn mưa chỗ khác thì vẫn phải mưa)
     for scenario in sc_service.active_scenarios:
         penalty = scenario['penalty_weight']
-        for u, v in scenario['affected_edges_list']:
-            pf_service.update_weight_in_ram(u, v, penalty)
+        for v_type, edges in scenario['affected_edges_map'].items():
+            for u, v in edges:
+                pf_service.update_weight_in_ram(u, v, penalty, v_type)
 
     print(f"🔄 Scenario {scenario_id} removed. Graph refreshed.")
     return {"message": "Scenario deleted and graph updated"}

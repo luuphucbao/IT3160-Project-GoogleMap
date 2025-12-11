@@ -17,6 +17,8 @@ const clearBtn = document.getElementById('clearBtn');
 const pathInfo = document.getElementById('pathInfo');
 const statusMessage = document.getElementById('statusMessage');
 const loadingOverlay = document.getElementById('loadingOverlay');
+const btnFoot = document.getElementById('btnFoot');
+const btnCar = document.getElementById('btnCar');
 
 // NEW: DOM Element for the Show Nodes button
 const showNodesBtn = document.getElementById('showNodesBtn'); 
@@ -25,6 +27,10 @@ const showNodesBtn = document.getElementById('showNodesBtn');
 let selectingMode = null; // 'start' or 'end'
 let currentPath = null;
 let nodesShown = false; // <-- NEW: State to track node visibility
+let selectedVehicle = 'foot'; // Default vehicle
+
+const SPEED_CAR = 11.1; // ~40 km/h in m/s
+const SPEED_FOOT = 1.4; // ~5 km/h in m/s
 
 /**
  * Initialize the application
@@ -65,6 +71,10 @@ function setupEventListeners() {
     // Clear button
     clearBtn.addEventListener('click', clearAll);
     
+    // Vehicle buttons
+    btnCar.addEventListener('click', () => toggleVehicle('car', btnCar, btnFoot));
+    btnFoot.addEventListener('click', () => toggleVehicle('foot', btnFoot, btnCar));
+
     // NEW: Toggle Nodes button
     // showNodesBtn.addEventListener('click', toggleShowNodes); 
     
@@ -99,6 +109,29 @@ function setupEventListeners() {
 }
 
 /**
+ * Handle Vehicle Toggle Logic
+ */
+function toggleVehicle(type, btnClicked, btnOther) {
+    if (selectedVehicle === type) {
+        // Nếu nhấn chọn thêm 1 lần nữa vào nút đang được chọn thì nút sẽ tắt
+        selectedVehicle = null;
+        btnClicked.classList.remove('active');
+        updateStatus('⚠️ Chưa chọn phương tiện. Vui lòng chọn Car hoặc Foot.');
+    } else {
+        // Chọn phương tiện mới
+        selectedVehicle = type;
+        btnClicked.classList.add('active');
+        btnOther.classList.remove('active');
+        updateStatus(`Đang chọn ${type === 'car' ? 'Car' : 'Foot'}`);
+        
+        // Nếu đã có đường đi, tự động tìm lại đường mới với phương tiện mới
+        if (currentPath) {
+            findPath();
+        }
+    }
+}
+
+/**
  * Find optimal path between start and end points
  */
 
@@ -118,15 +151,22 @@ async function findPath() {
         updateStatus('❌ Please select or enter a valid END point.');
         return;
     }
+
+    if (!selectedVehicle) {
+        updateStatus('⚠️ Vui lòng chọn phương tiện (Car hoặc Foot) để tìm đường.');
+        return;
+    }
     
     // Show loading
     showLoading(true);
     updateStatus('🔍 Finding optimal path...');
     
+    const speed = selectedVehicle === 'car' ? SPEED_CAR : SPEED_FOOT;
+
     try {
         // ACTUAL API CALL: Fetch path from the backend service
         const response = await fetch(
-            `${API_BASE_URL}/api/path?start_x=${startX}&start_y=${startY}&end_x=${endX}&end_y=${endY}`
+            `${API_BASE_URL}/api/path?start_x=${startX}&start_y=${startY}&end_x=${endX}&end_y=${endY}&vehicle=${selectedVehicle}&speed=${speed}`
         );
         
         if (!response.ok) {
@@ -300,6 +340,13 @@ function clearAll() {
     currentPath = null;
     selectStartBtn.classList.remove('active');
     selectEndBtn.classList.remove('active');
+    
+    // Note: "Khi nút đã được chọn thì sẽ không tắt cho đến khi bị chọn sang phương tiện khác"
+    // So we do NOT reset selectedVehicle here.
+    // But if we wanted to reset to default:
+    // selectedVehicle = 'foot';
+    // document.getElementById('btnFoot').classList.add('active');
+    // document.getElementById('btnCar').classList.remove('active');
     
     // Clear nodes if shown
     if (nodesShown) {

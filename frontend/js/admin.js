@@ -409,19 +409,12 @@ clearAllBtn.addEventListener('click', async () => {
     try {
         updateStatus('Clearing scenarios...');
         
-        // Bước 1: Lấy danh sách ID
-        const listResponse = await authManager.request('/api/scenarios');
-        const scenarios = await listResponse.json();
+        // Bước 1: Gọi API xóa toàn bộ (Backend đã hỗ trợ endpoint DELETE /api/scenarios/)
+        // Việc này nhanh hơn nhiều so với xóa từng cái vì không phải tính lại trọng số nhiều lần
+        const response = await authManager.request('/api/scenarios/', { method: 'DELETE' });
+        if (!response.ok) throw new Error('Failed to clear scenarios');
         
-        // Bước 2: Loop xoá từng ID
-        // (Cách này hơi chậm nhưng an toàn nếu Backend chưa có hàm delete-all)
-        let successCount = 0;
-        for (const s of scenarios) {
-            await authManager.request(`/api/scenarios/${s.id}`, { method: 'DELETE' });
-            successCount++;
-        }
-        
-        // Bước 3: Dọn dẹp giao diện
+        // Bước 2: Dọn dẹp giao diện
         clearScenarioLayers();
         clearTempMarkers();
         clickPoints = [];
@@ -429,7 +422,7 @@ clearAllBtn.addEventListener('click', async () => {
         
         scenarioButtons.forEach(b => b.classList.remove('active'));
         
-        updateStatus(`Cleared ${successCount} scenarios successfully.`);
+        updateStatus(`All scenarios cleared successfully.`);
 
         // Signal other tabs that scenarios have changed
         localStorage.setItem('scenarios_updated', new Date().toISOString());
