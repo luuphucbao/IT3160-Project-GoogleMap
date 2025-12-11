@@ -80,6 +80,7 @@ function setupEventListeners() {
     
     // Map click handler
     MapModule.onMapClick((x, y) => {
+        History.save(); // Save state before changing it
         if (selectingMode === 'start') {
             startXInput.value = Math.round(x);
             startYInput.value = Math.round(y);
@@ -136,6 +137,7 @@ function toggleVehicle(type, btnClicked, btnOther) {
  */
 
 async function findPath() {
+    History.save(); // Save state before finding a new path
     // Validate inputs
     const startX = parseFloat(startXInput.value);
     const startY = parseFloat(startYInput.value);
@@ -323,6 +325,7 @@ function showErrorInfo(message) {
  * Clear all selections and path
  */
 function clearAll() {
+    History.save(); // Save state before clearing
     // Clear inputs
     startXInput.value = '';
     startYInput.value = '';

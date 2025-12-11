@@ -13,13 +13,15 @@ const logoutBtn = document.getElementById('logoutBtn');
 const statusMessage = document.getElementById('statusMessage');
 const scenarioButtons = document.querySelectorAll('.btn-scenario');
 const clearAllBtn = document.getElementById('clearAllBtn');
+const toggleDeleteBtn = document.getElementById('toggleDeleteBtn');
 
 // State
 let map;
 let currentScenario = null;
 let clickPoints = [];
 let tempMarkers = [];
-let scenarioLayers = [];
+let scenarioHistory = [];
+let isDeleteMode = false;
 
 /**
  * Initialize the application
@@ -131,9 +133,6 @@ loginForm.addEventListener('submit', async (e) => {
     }
 });
 
-/**
- * Handle logout
- */
 logoutBtn.addEventListener('click', async () => {
     if (confirm('Are you sure you want to logout?')) {
         await authManager.logout();
@@ -141,11 +140,16 @@ logoutBtn.addEventListener('click', async () => {
         // Reset state
         currentScenario = null;
         clickPoints = [];
-        clearTempMarkers();
-        clearScenarioLayers();
-        
-        showLogin();
+        clearScenarioHistory();
     }
+});
+
+/**
+ * Handle toggle delete mode button
+ */
+toggleDeleteBtn.addEventListener('click', () => {
+    isDeleteMode = !isDeleteMode;
+    updateDeleteModeUI();
 });
 
 /**
@@ -222,6 +226,80 @@ function onMapClick(e) {
         
         // Apply scenario
         applyScenario();
+    }
+}
+
+function updateDeleteModeUI() {
+    const activeClass = 'active'; // A class to indicate active state
+    
+    if (isDeleteMode) {
+        toggleDeleteBtn.textContent = 'Disable Delete Mode';
+        toggleDeleteBtn.classList.add(activeClass);
+        map.getContainer().style.cursor = 'crosshair';
+        
+        // Update style of existing layers to indicate they are deletable
+        scenarioHistory.forEach(scenario => {
+            if (scenario.layer && scenario.layer.setStyle) {
+                scenario.layer.setStyle({ dashArray: '5, 5', color: '#e53e3e' }); // A noticeable red
+            }
+        });
+        
+        updateStatus('Delete mode enabled. Click a scenario on the map to remove it.');
+    } else {
+        toggleDeleteBtn.textContent = 'Enable Delete Mode';
+        toggleDeleteBtn.classList.remove(activeClass);
+        map.getContainer().style.cursor = '';
+        
+        // Revert style for existing layers
+        scenarioHistory.forEach(scenario => {
+            if (scenario.layer && scenario.layer.setStyle) {
+                // Get original color from the scenario data mapping
+                const scenarioData = getScenarioData(scenario.request.scenario_type);
+                scenario.layer.setStyle({
+                    dashArray: null,
+                    color: scenarioData.color
+                });
+            }
+        });
+        
+        updateStatus('Delete mode disabled.');
+    }
+}
+
+/**
+ * Handle click on a scenario layer to delete it
+ */
+function onScenarioClick(e) {
+    // Only allow deletion if delete mode is active
+    if (!isDeleteMode) return;
+
+    // Stop the click from propagating to the map, which would trigger onMapClick
+    L.DomEvent.stopPropagation(e);
+
+    // `this` refers to the layer that was clicked
+    const clickedLayer = this;
+
+    // Use a confirmation dialog
+    if (!confirm('Are you sure you want to delete this specific scenario?')) {
+        return;
+    }
+
+    // Find the index of the scenario in our history array
+    const scenarioIndex = scenarioHistory.findIndex(scenario => scenario.layer === clickedLayer);
+
+    if (scenarioIndex > -1) {
+        // Remove the layer from the map
+        map.removeLayer(clickedLayer);
+
+        // Remove the scenario from our history array
+        scenarioHistory.splice(scenarioIndex, 1);
+
+        // Resynchronize the backend state
+        updateStatus('Deleting scenario and resyncing...');
+        resyncBackendScenarios(); // This function will clear the backend and re-add the remaining scenarios
+    } else {
+        console.error("Could not find the clicked scenario in the history.");
+        updateStatus("Error: Could not delete the scenario.");
     }
 }
 
@@ -310,8 +388,20 @@ async function applyScenario() {
             });
         }
         
+        visualLayer.on('click', onScenarioClick);
         visualLayer.addTo(map);
-        scenarioLayers.push(visualLayer);
+
+        // If in delete mode, apply the deletable style immediately
+        if (isDeleteMode) {
+            if (visualLayer.setStyle) {
+                visualLayer.setStyle({ dashArray: '5, 5', color: '#e53e3e' });
+            }
+        }
+        scenarioHistory.push({
+            layer: visualLayer,
+            request: requestData,
+            response: data
+        });
         
         updateStatus(`${scenarioData.name} applied! Affected ${data.affected_edges} edges.`);
         
@@ -393,9 +483,9 @@ function clearTempMarkers() {
 /**
  * Clear all scenario layers
  */
-function clearScenarioLayers() {
-    scenarioLayers.forEach(layer => map.removeLayer(layer));
-    scenarioLayers = [];
+function clearScenarioHistory() {
+    scenarioHistory.forEach(scenario => map.removeLayer(scenario.layer));
+    scenarioHistory = [];
 }
 
 /**
@@ -415,12 +505,18 @@ clearAllBtn.addEventListener('click', async () => {
         if (!response.ok) throw new Error('Failed to clear scenarios');
         
         // Bước 2: Dọn dẹp giao diện
-        clearScenarioLayers();
+        clearScenarioHistory();
         clearTempMarkers();
         clickPoints = [];
         currentScenario = null;
         
         scenarioButtons.forEach(b => b.classList.remove('active'));
+
+        // If in delete mode, disable it since there's nothing left to delete
+        if (isDeleteMode) {
+            isDeleteMode = false;
+            updateDeleteModeUI();
+        }
         
         updateStatus(`All scenarios cleared successfully.`);
 
@@ -438,6 +534,75 @@ clearAllBtn.addEventListener('click', async () => {
 function updateStatus(message) {
     statusMessage.textContent = message;
 }
+
+/**
+ * Resync all scenarios with the backend.
+ * This is done by clearing all scenarios on the backend and then re-adding them.
+ */
+async function resyncBackendScenarios() {
+    // 1. Clear all scenarios on the backend
+    try {
+        await authManager.request('/api/scenarios/', { method: 'DELETE' });
+    } catch (error) {
+        console.error('Failed to clear scenarios during resync:', error);
+        updateStatus('Error during undo operation. Scenarios may be out of sync.');
+        return;
+    }
+
+    // 2. Re-apply all scenarios from history
+    const scenariosToReapply = [...scenarioHistory]; // Create a copy
+
+    for (const scenario of scenariosToReapply) {
+        try {
+            // We don't need to do anything with the response here
+            await authManager.request('/api/scenarios', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(scenario.request)
+            });
+        } catch (error) {
+            console.error('Failed to re-apply a scenario during resync:', error);
+            // If one fails, we should probably stop and alert the user
+            updateStatus('Error re-applying scenarios after undo. State might be inconsistent.');
+            return; // Stop processing further
+        }
+    }
+
+    // Signal other tabs that scenarios have changed
+    localStorage.setItem('scenarios_updated', new Date().toISOString());
+    updateStatus(`Undo successful. ${scenarioHistory.length} scenarios active.`);
+}
+
+/**
+ * Undo the last added scenario
+ */
+async function undoLastScenario() {
+    if (scenarioHistory.length === 0) {
+        updateStatus('Nothing to undo.');
+        return;
+    }
+
+    updateStatus('Undoing last scenario...');
+
+    // 1. Remove from history and map
+    const lastScenario = scenarioHistory.pop();
+    if (lastScenario && lastScenario.layer) {
+        map.removeLayer(lastScenario.layer);
+    }
+
+    // 2. Resync backend
+    await resyncBackendScenarios();
+}
+
+
+// Add keyboard listener for Ctrl+Z
+document.addEventListener('keydown', function(event) {
+    // Check if the login modal is hidden, so we don't undo while typing username/password
+    if (loginModal.style.display === 'none' && event.ctrlKey && event.key === 'z') {
+        event.preventDefault();
+        undoLastScenario();
+    }
+});
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', init);

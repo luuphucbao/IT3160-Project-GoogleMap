@@ -264,6 +264,14 @@ function onMapClick(callback) {
     });
 }
 
+function setStartMarker(marker) {
+    startMarker = marker;
+}
+
+function setEndMarker(marker) {
+    endMarker = marker;
+}
+
 // Export functions for use in other modules
 window.MapModule = {
     init: initializeMap,
@@ -274,5 +282,12 @@ window.MapModule = {
     onMapClick: onMapClick,
     dbToLeaflet: dbToLeaflet,
     showAllNodes: showAllNodes, // <-- exported
-    clearNodes: clearNodes      // <-- exported
+    clearNodes: clearNodes,      // <-- exported
+    getMap: () => map,
+    getStartMarker: () => startMarker,
+    getEndMarker: () => endMarker,
+    getPathLayer: () => pathLayer,
+    setPathLayer: (layer) => pathLayer = layer,
+    setStartMarker,
+    setEndMarker,
 };

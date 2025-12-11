@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+python-jose[cryptography]
+passlib==1.7.4
+bcrypt==3.2.0
+python-multipart
+pydantic
+pydantic-settings
+python-dotenv
+networkx
