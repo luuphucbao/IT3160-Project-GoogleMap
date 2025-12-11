@@ -254,7 +254,7 @@ function updateDeleteModeUI() {
         scenarioHistory.forEach(scenario => {
             if (scenario.layer && scenario.layer.setStyle) {
                 // Get original color from the scenario data mapping
-                const scenarioData = getScenarioData(scenario.request.scenario_type);
+                const scenarioData = getScenarioData(scenario.scenarioKey);
                 scenario.layer.setStyle({
                     dashArray: null,
                     color: scenarioData.color
@@ -400,7 +400,8 @@ async function applyScenario() {
         scenarioHistory.push({
             layer: visualLayer,
             request: requestData,
-            response: data
+            response: data,
+            scenarioKey: currentScenario
         });
         
         updateStatus(`${scenarioData.name} applied! Affected ${data.affected_edges} edges.`);
