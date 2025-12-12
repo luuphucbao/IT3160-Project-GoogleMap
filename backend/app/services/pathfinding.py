@@ -5,6 +5,7 @@ Implements A* algorithm with In-Memory Graph capability for high performance
 import ast
 import heapq
 import math
+import uuid
 from typing import List, Tuple, Dict, Optional
 from app.database import get_db_connection
 from app.config import get_settings
@@ -63,6 +64,159 @@ class PathfindingService:
                 # Khởi tạo trọng số hiện tại bằng trọng số gốc
                 graph['current_weights'] = graph['original_weights'].copy()
                 print(f"✓ [RAM] Loaded {v_type} graph: {len(graph['nodes'])} nodes, {len(graph['original_weights'])} edges")
+
+    # --- CÁC HÀM HÌNH HỌC & BIẾN ĐỔI GRAPH (CHO YÊU CẦU 1 & 2) ---
+
+    def find_nearest_edge_projection(self, x: float, y: float, vehicle_type: str) -> Optional[Tuple]:
+        """
+        Tìm cạnh gần nhất mà hình chiếu của điểm (x,y) nằm trong đoạn thẳng (tam giác nhọn).
+        Trả về: (u, v, projection_point, distance)
+        """
+        if vehicle_type not in self.graphs:
+            return None
+        
+        graph = self.graphs[vehicle_type]
+        best_dist = float('inf')
+        best_result = None
+        
+        # Duyệt qua tất cả các cạnh
+        for (u, v), _ in graph['original_weights'].items():
+            if u not in graph['nodes'] or v not in graph['nodes']:
+                continue
+                
+            p1 = graph['nodes'][u]
+            p2 = graph['nodes'][v]
+            
+            dx = p2[0] - p1[0]
+            dy = p2[1] - p1[1]
+            
+            if dx == 0 and dy == 0: continue
+            
+            # Vector AP
+            ap_x = x - p1[0]
+            ap_y = y - p1[1]
+            
+            # Tính t (projection scalar)
+            len_sq = dx*dx + dy*dy
+            t = (ap_x * dx + ap_y * dy) / len_sq
+            
+            # Kiểm tra hình chiếu nằm trong đoạn (0 <= t <= 1)
+            if 0 <= t <= 1:
+                proj_x = p1[0] + t * dx
+                proj_y = p1[1] + t * dy
+                
+                dist = math.sqrt((x - proj_x)**2 + (y - proj_y)**2)
+                
+                if dist < best_dist:
+                    best_dist = dist
+                    best_result = (u, v, (proj_x, proj_y), dist)
+                    
+        return best_result
+
+    def split_edge(self, u, v, split_point: Tuple[float, float], vehicle_type: str) -> Dict:
+        """
+        Chia cạnh (u,v) tại điểm split_point thành (u, X) và (X, v).
+        Trả về thông tin để undo.
+        """
+        graph = self.graphs[vehicle_type]
+        temp_id = f"temp_{uuid.uuid4().hex[:8]}"
+        
+        # 1. Thêm node mới
+        graph['nodes'][temp_id] = split_point
+        graph['adj_list'][temp_id] = []
+        
+        # 2. Tính toán khoảng cách mới
+        p_u = graph['nodes'][u]
+        p_v = graph['nodes'][v]
+        dist_u_x = math.sqrt((p_u[0]-split_point[0])**2 + (p_u[1]-split_point[1])**2)
+        dist_x_v = math.sqrt((p_v[0]-split_point[0])**2 + (p_v[1]-split_point[1])**2)
+
+        # --- FIX: TÍNH TỶ LỆ PHẠT HIỆN TẠI ---
+        # Nếu cạnh cũ đang bị phạt (mưa/tắc), cạnh mới cũng phải chịu phạt tương ứng
+        old_w_orig = graph['original_weights'].get((u, v), 1)
+        old_w_curr = graph['current_weights'].get((u, v), 1)
+        # Tỷ lệ penalty (ví dụ: 1.0 là bth, 2.0 là mưa to)
+        penalty_ratio = old_w_curr / old_w_orig if old_w_orig > 0 else 1.0
+        
+        # 3. Lưu trạng thái cũ để Undo
+        undo_info = {
+            'action': 'split', 'temp_id': temp_id, 'u': u, 'v': v,
+            'old_w_uv': graph['original_weights'].get((u, v)),
+            'old_curr_uv': graph['current_weights'].get((u, v)),
+            'has_reverse': False
+        }
+
+        # 4. Cập nhật cạnh thuận (u, v) -> (u, X), (X, v)
+        if v in graph['adj_list'][u]: graph['adj_list'][u].remove(v)
+        graph['adj_list'][u].append(temp_id)
+        graph['adj_list'][temp_id].append(v)
+        
+        if (u, v) in graph['original_weights']: del graph['original_weights'][(u, v)]
+        if (u, v) in graph['current_weights']: del graph['current_weights'][(u, v)]
+        
+        graph['original_weights'][(u, temp_id)] = dist_u_x
+        graph['current_weights'][(u, temp_id)] = dist_u_x * penalty_ratio
+        graph['original_weights'][(temp_id, v)] = dist_x_v
+        graph['current_weights'][(temp_id, v)] = dist_x_v * penalty_ratio
+        
+        # 5. Cập nhật cạnh nghịch (v, u) nếu có
+        if u in graph['adj_list'].get(v, []):
+            undo_info['has_reverse'] = True
+            undo_info['old_w_vu'] = graph['original_weights'].get((v, u))
+            undo_info['old_curr_vu'] = graph['current_weights'].get((v, u))
+            
+            graph['adj_list'][v].remove(u)
+            graph['adj_list'][v].append(temp_id)
+            graph['adj_list'][temp_id].append(u)
+            
+            if (v, u) in graph['original_weights']: del graph['original_weights'][(v, u)]
+            if (v, u) in graph['current_weights']: del graph['current_weights'][(v, u)]
+            
+            graph['original_weights'][(v, temp_id)] = dist_x_v
+            graph['current_weights'][(v, temp_id)] = dist_x_v * penalty_ratio
+            graph['original_weights'][(temp_id, u)] = dist_u_x
+            graph['current_weights'][(temp_id, u)] = dist_u_x * penalty_ratio
+            
+        return undo_info
+
+    def restore_graph_changes(self, changes: List[Dict], vehicle_type: str):
+        """Khôi phục graph dựa trên danh sách thay đổi (Undo)"""
+        graph = self.graphs[vehicle_type]
+        for change in reversed(changes):
+            if change['action'] == 'split':
+                temp_id = change['temp_id']
+                u, v = change['u'], change['v']
+                
+                # Xóa node tạm
+                if temp_id in graph['nodes']: del graph['nodes'][temp_id]
+                if temp_id in graph['adj_list']: del graph['adj_list'][temp_id]
+                
+                # Khôi phục cạnh thuận
+                if temp_id in graph['adj_list'][u]: graph['adj_list'][u].remove(temp_id)
+                graph['adj_list'][u].append(v)
+                
+                # Xóa weights mới
+                for k in [(u, temp_id), (temp_id, v)]:
+                    if k in graph['original_weights']: del graph['original_weights'][k]
+                    if k in graph['current_weights']: del graph['current_weights'][k]
+                
+                # Khôi phục weights cũ
+                if change['old_w_uv'] is not None:
+                    graph['original_weights'][(u, v)] = change['old_w_uv']
+                    graph['current_weights'][(u, v)] = change['old_curr_uv']
+                
+                # Khôi phục cạnh nghịch
+                if change['has_reverse']:
+                    if temp_id in graph['adj_list'][v]: graph['adj_list'][v].remove(temp_id)
+                    graph['adj_list'][v].append(u)
+                    
+                    for k in [(v, temp_id), (temp_id, u)]:
+                        if k in graph['original_weights']: del graph['original_weights'][k]
+                        if k in graph['current_weights']: del graph['current_weights'][k]
+                        
+                    if change['old_w_vu'] is not None:
+                        graph['original_weights'][(v, u)] = change['old_w_vu']
+                        graph['current_weights'][(v, u)] = change['old_curr_vu']
 
     # --- CÁC HÀM MỚI ĐỂ SCENARIO SERVICE GỌI ---
     
@@ -219,22 +373,43 @@ class PathfindingService:
     def find_path(self, start_x: float, start_y: float, end_x: float, end_y: float, vehicle_type: str, speed: float) -> Optional[Dict]:
         if vehicle_type not in self.graphs:
             return None
+        
+        changes = [] # Lưu các thay đổi tạm thời để restore sau
+        
+        try:
+            # 1. Tìm và thêm điểm Start (Hình chiếu lên cạnh)
+            start_info = self.find_nearest_edge_projection(start_x, start_y, vehicle_type)
+            if start_info:
+                u, v, proj, _ = start_info
+                # Split cạnh để thêm điểm Start vào đồ thị
+                change = self.split_edge(u, v, proj, vehicle_type)
+                changes.append(change)
+                start_node = change['temp_id']
+            else:
+                # Fallback nếu không tìm được hình chiếu (quá xa hoặc lỗi)
+                start_node = self.find_nearest_node(start_x, start_y, vehicle_type)
+
+            # 2. Tìm và thêm điểm End
+            end_info = self.find_nearest_edge_projection(end_x, end_y, vehicle_type)
+            if end_info:
+                u, v, proj, _ = end_info
+                change = self.split_edge(u, v, proj, vehicle_type)
+                changes.append(change)
+                end_node = change['temp_id']
+            else:
+                end_node = self.find_nearest_node(end_x, end_y, vehicle_type)
             
-        start_node = self.find_nearest_node(start_x, start_y, vehicle_type)
-        end_node = self.find_nearest_node(end_x, end_y, vehicle_type)
-        
-        if start_node is None or end_node is None:
-            return None
-        
-        if start_node == end_node:
-            x, y = self.graphs[vehicle_type]['nodes'][start_node]
-            return {
-                'path': [{'node_id': start_node, 'x': x, 'y': y}],
-                'node_ids': [start_node],
-                'distance': 0, 'cost': 0, 'nodes': 1
-            }
-        
-        return self.a_star(start_node, end_node, vehicle_type, speed)
+            if start_node is None or end_node is None:
+                return None
+            
+            # 3. Tìm đường
+            result = self.a_star(start_node, end_node, vehicle_type, speed)
+            return result
+            
+        finally:
+            # 4. Khôi phục đồ thị (Xóa các điểm tạm)
+            if changes:
+                self.restore_graph_changes(changes, vehicle_type)
     
     # Hàm này không còn dùng nữa vì ta update trực tiếp, nhưng để lại cho tương thích ngược nếu cần
     def reload_graph(self):

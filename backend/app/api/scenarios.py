@@ -30,7 +30,7 @@ async def create_scenario(
     
     # Bước 1: Tính toán xem cạnh nào bị dính (Dùng data RAM để tính)
     # Lưu ý: Truyền pf_service vào để ScenarioService truy cập nodes/weights
-    affected_edges_map = sc_service.calculate_affected_edges(
+    affected_edges_map, structural_changes = sc_service.calculate_affected_edges(
         pathfinding_service=pf_service,
         line_p1=(request.line_start.lng, request.line_start.lat),
         line_p2=(request.line_end.lng, request.line_end.lat),
@@ -45,7 +45,7 @@ async def create_scenario(
             pf_service.update_weight_in_ram(u, v, request.penalty_weight, v_type)
         
     # Bước 3: Lưu lại kịch bản để quản lý
-    saved_scenario = sc_service.add_scenario(request.dict(), affected_edges_map)
+    saved_scenario = sc_service.add_scenario(request.dict(), affected_edges_map, structural_changes)
     
     print(f"✅ Applied scenario {request.scenario_type} to {total_affected} edges.")
     
@@ -69,18 +69,46 @@ async def delete_scenario(
     sc_service = get_scenario_service()
     
     # 1. Xóa khỏi danh sách quản lý
-    success = sc_service.remove_scenario(scenario_id)
-    if not success:
+    # Cần lấy scenario ra trước để biết nó đã thay đổi cấu trúc gì
+    scenario_to_remove = next((s for s in sc_service.active_scenarios if s["id"] == scenario_id), None)
+    
+    if not scenario_to_remove:
         raise HTTPException(status_code=404, detail="Scenario not found")
+        
+    sc_service.remove_scenario(scenario_id)
 
-    # 2. Reset trọng số RAM về trạng thái ban đầu (như lúc mới khởi động)
+    # 2. Reset trọng số RAM về trạng thái ban đầu
     pf_service.reset_weights_in_ram()
     
-    # 3. Apply lại TẤT CẢ các kịch bản còn lại trong danh sách
+    # 3. Undo các thay đổi cấu trúc (Split edges) của scenario này
+    # Lưu ý: Nếu có nhiều scenario chồng chéo, việc undo này có thể phức tạp.
+    # Ở đây ta giả định reset toàn bộ graph về gốc rồi apply lại các scenario còn lại là an toàn nhất.
+    # Tuy nhiên, PathfindingService không hỗ trợ "reset cấu trúc" dễ dàng trừ khi reload DB.
+    # Cách tốt nhất: Reload Graph từ DB -> Apply lại các scenario còn lại.
+    
+    pf_service.reload_graph() # Reset cấu trúc và trọng số về zin
+    
+    # 4. Apply lại TẤT CẢ các kịch bản còn lại trong danh sách
     # (Để đảm bảo nếu còn mưa chỗ khác thì vẫn phải mưa)
     for scenario in sc_service.active_scenarios:
+        # Cần tính toán lại cấu trúc cho các scenario còn lại (vì graph đã reset)
+        # Đây là bước tốn kém nhưng đảm bảo tính đúng đắn
+        
+        # Tính lại affected edges và structural changes trên graph mới
+        req = scenario # scenario dict chứa data request
+        new_map, new_struct = sc_service.calculate_affected_edges(
+            pf_service,
+            (req['line_start']['lng'], req['line_start']['lat']),
+            (req['line_end']['lng'], req['line_end']['lat']),
+            req['threshold']
+        )
+        
+        # Cập nhật lại thông tin mới vào scenario trong list
+        scenario['affected_edges_map'] = new_map
+        scenario['structural_changes'] = new_struct
+        
         penalty = scenario['penalty_weight']
-        for v_type, edges in scenario['affected_edges_map'].items():
+        for v_type, edges in new_map.items():
             for u, v in edges:
                 pf_service.update_weight_in_ram(u, v, penalty, v_type)
 
@@ -96,8 +124,8 @@ async def clear_all_scenarios(_=Depends(require_admin)):
     # 1. Xóa danh sách
     sc_service.clear_all()
     
-    # 2. Reset RAM về zin
-    pf_service.reset_weights_in_ram()
+    # 2. Reset RAM về zin (Bao gồm cả cấu trúc)
+    pf_service.reload_graph()
     
     print("🧹 All scenarios cleared. Graph reset to original.")
     return {"message": "All scenarios cleared"}
