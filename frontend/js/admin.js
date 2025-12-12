@@ -183,6 +183,8 @@ scenarioButtons.forEach(btn => {
  * Handle map clicks for scenario drawing
  */
 function onMapClick(e) {
+    if (isDeleteMode) return;
+
     if (!currentScenario) {
         updateStatus('Please select a scenario first.');
         return;
