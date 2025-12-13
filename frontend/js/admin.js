@@ -62,6 +62,9 @@ function showDashboard() {
     if (!map) {
         initMap();
     }
+
+    // Load existing scenarios from the backend
+    loadAndDrawScenarios();
 }
 
 /**
@@ -488,7 +491,105 @@ function getScenarioData(scenario) {
         }
     };
     
-    return scenarios[scenario] || scenarios['rain-light'];
+    if (scenario) {
+        return scenarios[scenario] || scenarios['rain-light'];
+    }
+    return scenarios; // Return all if no specific scenario is requested
+}
+
+/**
+ * Helper function to find scenario key by penalty and type
+ */
+function findScenarioKey(penalty, type) {
+    const scenarios = getScenarioData(); // Get all scenarios
+    for (const key in scenarios) {
+        if (scenarios[key].type === type && scenarios[key].penalty === penalty) {
+            return key;
+        }
+    }
+    // Fallback for road-block or if not found
+    return type === 'block' ? 'road-block' : 'rain-light'; 
+}
+
+/**
+ * Load existing scenarios from the backend and draw them on the map
+ */
+async function loadAndDrawScenarios() {
+    try {
+        updateStatus('Loading existing scenarios...');
+        const response = await authManager.request('/api/scenarios/');
+        if (!response.ok) {
+            throw new Error('Could not fetch scenarios.');
+        }
+
+        const scenarios = await response.json();
+
+        // Clear any local scenarios before loading from backend
+        clearScenarioHistory();
+        
+        if (scenarios.length === 0) {
+            updateStatus('No active scenarios found. Select a scenario to begin.');
+            return;
+        }
+
+        for (const scenario of scenarios) {
+            const scenarioKey = findScenarioKey(scenario.penalty_weight, scenario.scenario_type);
+            const scenarioData = getScenarioData(scenarioKey);
+            
+            let visualLayer;
+            let clickPoints = [[scenario.line_start.lat, scenario.line_start.lng], [scenario.line_end.lat, scenario.line_end.lng]];
+
+            if (scenario.scenario_type === 'rain') {
+                // For rain, API returns center point as start/end, and radius as threshold
+                const visualCenter = [scenario.line_start.lat, scenario.line_start.lng];
+                const visualRadius = scenario.threshold;
+                visualLayer = L.circle(visualCenter, {
+                    radius: visualRadius,
+                    color: scenarioData.color,
+                    fillColor: scenarioData.color,
+                    fillOpacity: 0.3,
+                    weight: 2
+                });
+            } else { // block
+                visualLayer = L.polyline(clickPoints, { 
+                    color: 'red', 
+                    weight: 5 
+                });
+            }
+            
+            visualLayer.on('click', onScenarioClick);
+            visualLayer.addTo(map);
+
+            // If in delete mode, apply the deletable style immediately
+            if (isDeleteMode) {
+                if (visualLayer.setStyle) {
+                    visualLayer.setStyle({ dashArray: '5, 5', color: '#e53e3e' });
+                }
+            }
+
+            // Reconstruct the scenario object to store in history
+            const historyItem = {
+                layer: visualLayer,
+                // The request object from the backend is what we need
+                request: {
+                    scenario_type: scenario.scenario_type,
+                    line_start: scenario.line_start,
+                    line_end: scenario.line_end,
+                    penalty_weight: scenario.penalty_weight,
+                    threshold: scenario.threshold
+                },
+                response: { /* We don't have this, but it's not critical for deletion */ },
+                scenarioKey: scenarioKey
+            };
+            scenarioHistory.push(historyItem);
+        }
+
+        updateStatus(`Loaded ${scenarios.length} active scenarios.`);
+
+    } catch (error) {
+        console.error('Error loading scenarios:', error);
+        updateStatus('Failed to load existing scenarios.');
+    }
 }
 
 /**
