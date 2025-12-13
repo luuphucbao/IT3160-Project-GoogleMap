@@ -163,6 +163,31 @@ body {
     background: #c53030;
 }
 
+.btn-warning {
+    background-color: #ffffff; /* White background */
+    color: #1a202c; /* Dark text */
+    border: 2px solid #e2e8f0; /* Gray border */
+    width: 100%;
+}
+
+/* Hover on default (white) state */
+.btn-warning:hover {
+    background-color: #f7fafc; /* Light gray background */
+}
+
+/* Active (clicked) state */
+.btn-warning.active {
+    background-color: #ed8936; /* Orange background */
+    color: #ffffff; /* White text */
+    border-color: #ed8936; /* Matching border */
+}
+
+/* Hover on active (orange) state */
+.btn-warning.active:hover {
+    background-color: #dd6b20; /* Darker orange */
+    border-color: #dd6b20; /* Matching border */
+}
+
 /* Dashboard */
 .dashboard-header {
     background: white;

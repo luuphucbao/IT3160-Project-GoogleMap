@@ -137,10 +137,8 @@ logoutBtn.addEventListener('click', async () => {
     if (confirm('Are you sure you want to logout?')) {
         await authManager.logout();
         
-        // Reset state
-        currentScenario = null;
-        clickPoints = [];
-        clearScenarioHistory();
+        // Reload the page to ensure all state is reset and the user is shown the login screen
+        window.location.reload();
     }
 });
 
