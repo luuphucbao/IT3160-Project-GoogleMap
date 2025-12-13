@@ -147,6 +147,15 @@ logoutBtn.addEventListener('click', async () => {
  */
 toggleDeleteBtn.addEventListener('click', () => {
     isDeleteMode = !isDeleteMode;
+
+    if (isDeleteMode) {
+        // De-select any active scenario when entering delete mode
+        currentScenario = null;
+        scenarioButtons.forEach(b => b.classList.remove('active'));
+        clearTempMarkers();
+        clickPoints = [];
+    }
+
     updateDeleteModeUI();
 });
 
@@ -155,6 +164,15 @@ toggleDeleteBtn.addEventListener('click', () => {
  */
 scenarioButtons.forEach(btn => {
     btn.addEventListener('click', () => {
+        // PREVENT SCENARIO SELECTION IF IN DELETE MODE
+        if (isDeleteMode) {
+            updateStatus('Cannot add new scenarios while in Delete Mode. Disable it first.');
+            // Ensure no scenario is active
+            scenarioButtons.forEach(b => b.classList.remove('active'));
+            currentScenario = null;
+            return; // Stop further execution
+        }
+
         const isAlreadyActive = btn.classList.contains('active');
 
         // Luôn xóa các điểm và marker tạm thời khi có tương tác với nút kịch bản
@@ -181,6 +199,8 @@ scenarioButtons.forEach(btn => {
  * Handle map clicks for scenario drawing
  */
 function onMapClick(e) {
+    if (isDeleteMode) return; // Do nothing if in delete mode
+
     if (!currentScenario) {
         updateStatus('Please select a scenario first.');
         return;
@@ -238,7 +258,7 @@ function updateDeleteModeUI() {
         // Update style of existing layers to indicate they are deletable
         scenarioHistory.forEach(scenario => {
             if (scenario.layer && scenario.layer.setStyle) {
-                scenario.layer.setStyle({ dashArray: '5, 5', color: '#e53e3e' }); // A noticeable red
+                scenario.layer.setStyle({ dashArray: '5, 5'}); // A noticeable red
             }
         });
         
