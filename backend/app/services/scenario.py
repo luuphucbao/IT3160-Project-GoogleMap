@@ -42,6 +42,9 @@ class ScenarioService:
             edges_list = list(edges_dict.keys())
             for (u, v) in edges_list:
                 
+                # Kiểm tra cạnh còn tồn tại không (vì có thể bị xóa do split cạnh nghịch trước đó)
+                if (u, v) not in edges_dict:
+                    continue
                 # Lấy toạ độ Node từ RAM
                 if u not in nodes or v not in nodes:
                     continue
@@ -127,6 +130,9 @@ class ScenarioService:
                                 mid_x, mid_y = (m1[0]+m2[0])/2, (m1[1]+m2[1])/2
                                 if (mid_x-cx)**2 + (mid_y-cy)**2 <= radius**2:
                                     affected_edges_by_type[v_type].append((current_u, temp_id))
+                                    # Thêm cạnh ngược nếu có (để đảm bảo đi chiều nào cũng bị phạt)
+                                    if (temp_id, current_u) in pathfinding_service.graphs[v_type]['current_weights']:
+                                        affected_edges_by_type[v_type].append((temp_id, current_u))
                                     
                                 current_u = temp_id # Tiếp tục xử lý đoạn sau
                             
@@ -136,6 +142,9 @@ class ScenarioService:
                             mid_x, mid_y = (m1[0]+m2[0])/2, (m1[1]+m2[1])/2
                             if (mid_x-cx)**2 + (mid_y-cy)**2 <= radius**2:
                                 affected_edges_by_type[v_type].append((current_u, v))
+                                # Thêm cạnh ngược cho đoạn cuối cùng
+                                if (v, current_u) in pathfinding_service.graphs[v_type]['current_weights']:
+                                    affected_edges_by_type[v_type].append((v, current_u))
 
                 else:
                     # --- TRƯỜNG HỢP CHẶN ĐƯỜNG (ĐOẠN THẲNG) ---
