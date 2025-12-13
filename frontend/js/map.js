@@ -115,35 +115,48 @@ function drawPath(pathData) {
     // Check if we have edges or nodes
     if (pathData[0].from && pathData[0].to) {
         // Draw edges
-        pathData.forEach(edge => {
-            const line = L.polyline([
-                dbToLeaflet(edge.from.x, edge.from.y),
-                dbToLeaflet(edge.to.x, edge.to.y)
-            ], {
-                color: '#3b82f6',
-                weight: 4,
-                opacity: 0.8
-            });
-            pathLayer.addLayer(line);
-        });
-        
-        // Add markers for start and end
-        const firstEdge = pathData[0];
-        const lastEdge = pathData[pathData.length - 1];
-        
-        startMarker = addMarker(firstEdge.from.x, firstEdge.from.y, 'start');
-        endMarker = addMarker(lastEdge.to.x, lastEdge.to.y, 'end');
-        
+        // ... (Existing logic for edges if needed, but backend returns nodes now)
+        // Assuming backend returns nodes format as per python code
     } else if (pathData[0].x !== undefined && pathData[0].y !== undefined) {
         // Draw path from nodes
         const coordinates = pathData.map(node => dbToLeaflet(node.x, node.y));
         
-        const line = L.polyline(coordinates, {
+        // Logic vẽ đường: 
+        // - Cạnh đầu (Start -> Proj) và Cạnh cuối (Proj -> End) vẽ nét đứt.
+        // - Các cạnh giữa vẽ nét liền.
+        
+        if (coordinates.length >= 2) {
+            // 1. Vẽ cạnh đầu tiên (Nét đứt)
+            L.polyline([coordinates[0], coordinates[1]], {
+                color: '#3b82f6',
+                weight: 4,
+                opacity: 0.8,
+                dashArray: '10, 10'
+            }).addTo(pathLayer);
+        }
+
+        if (coordinates.length > 3) {
+            // 2. Vẽ phần giữa (Nét liền)
+            // Từ node 1 đến node N-2
+            const middleCoords = coordinates.slice(1, coordinates.length - 1);
+            L.polyline(middleCoords, {
+                color: '#3b82f6',
+                weight: 4,
+                opacity: 0.8
+            }).addTo(pathLayer);
+        }
+
+        if (coordinates.length >= 3) {
+            // 3. Vẽ cạnh cuối cùng (Nét đứt)
+            // Từ node N-2 đến node N-1
+            const len = coordinates.length;
+            L.polyline([coordinates[len-2], coordinates[len-1]], {
             color: '#3b82f6',
             weight: 4,
-            opacity: 0.8
-        });
-        pathLayer.addLayer(line);
+            opacity: 0.8,
+            dashArray: '10, 10'
+            }).addTo(pathLayer);
+        }
         
         // Add markers
         const firstNode = pathData[0];

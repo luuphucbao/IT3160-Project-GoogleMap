@@ -22,6 +22,7 @@ EXTRACT_PRIMARY = True       # primary, primary_link, secondary, secondary_link,
 EXTRACT_RESIDENTIAL = True   # residential, living_street, unclassified, service
 EXTRACT_OTHER_SERVICE = True # Cho phép các loại 'service' khác ngoài 'driveway'. Phụ thuộc EXTRACT_RESIDENTIAL.
 EXTRACT_FOOTWAY = False       # footway, pedestrian, path, steps, bridleway, cycleway
+EXTRACT_ONEWAY = True        # True: Xử lý đường 1 chiều theo tag. False: Coi tất cả là đường 2 chiều.
 
 # Nếu EXTRACT_RESIDENTIAL là False, thì EXTRACT_OTHER_SERVICE cũng sẽ bị vô hiệu hóa.
 if not EXTRACT_RESIDENTIAL:
@@ -129,7 +130,11 @@ def add_bidirectional_edges(edges: List[Edge]) -> List[Edge]:
     new_edges = []
     for edge in edges:
         # Mặc định đường là 2 chiều trừ khi có tag oneway=yes
-        is_oneway = edge.tags.get("oneway") == "yes"
+        if EXTRACT_ONEWAY:
+            is_oneway = edge.tags.get("oneway") == "yes"
+        else:
+            is_oneway = False
+
         if not is_oneway:
             # Thêm cạnh ngược chiều
             new_edges.append(Edge(start=edge.end, end=edge.start, tags=edge.tags))
@@ -200,10 +205,7 @@ def subdivide_edges(nodes: Dict[int, Node], edges: List[Edge]) -> (Dict[int, Nod
     return nodes, new_edges
 
 
-def main(input_file: str):
-    json_data = load_osm_json(input_file)
-    elements = json_data.get("elements", [])
-
+def process_data(elements: List[Dict[str, Any]], nodes_file: str, edges_file: str):
     nodes = extract_nodes(elements)
     edges = extract_edges(elements)
 
@@ -220,15 +222,6 @@ def main(input_file: str):
     edges.extend(bidirectional_edges_to_add)
     print(f"Thao tác 4: Thêm cạnh hai chiều. Số cạnh được thêm: {num_added_edges}")
     print(f"Tổng số cạnh sau khi thêm: {len(edges)}")
-    print(f"--> Số liệu hiện tại: {len(nodes)} nodes, {len(edges)} edges")
-    print("-" * 30)
-
-    # 3. Chia nhỏ các cạnh
-    nodes_before_subdivide = len(nodes)
-    edges_before_subdivide = len(edges)
-    nodes, edges = subdivide_edges(nodes, edges)
-    print(f"  -> Số node mới được thêm: {len(nodes) - nodes_before_subdivide}")
-    print(f"  -> Tổng số cạnh sau khi chia nhỏ: {len(edges)} (thay đổi từ {edges_before_subdivide})")
     print(f"--> Số liệu hiện tại: {len(nodes)} nodes, {len(edges)} edges")
     print("-" * 30)
 
@@ -283,18 +276,35 @@ def main(input_file: str):
     
     # 8. (Mới) Lưu nodes và edges vào file .csv
     print("Thực hiện tác vụ 8: Bắt đầu lưu vào file CSV...")
-    with open("nodes.csv", "w", newline='', encoding='utf-8') as f:
+    with open(nodes_file, "w", newline='', encoding='utf-8') as f:
         writer = csv.writer(f)
         writer.writerow(["node_id", "pixel_x", "pixel_y"])
         writer.writerows([[node.id, node.x, node.y] for node in nodes.values()])
-    print("  -> Đã lưu nodes.csv")
+    print(f"  -> Đã lưu {nodes_file}")
 
-    with open("edges.csv", "w", newline='', encoding='utf-8') as f:
+    with open(edges_file, "w", newline='', encoding='utf-8') as f:
         writer = csv.writer(f)
         writer.writerow(["u", "v", "weight"])
         writer.writerows([[edge.start, edge.end, edge.weight] for edge in edges])
-    print("  -> Đã lưu edges.csv")
+    print(f"  -> Đã lưu {edges_file}")
     print("Lưu file CSV hoàn tất.")
+
+
+def main(input_file: str):
+    json_data = load_osm_json(input_file)
+    elements = json_data.get("elements", [])
+    
+    global EXTRACT_FOOTWAY, EXTRACT_ONEWAY
+
+    print("=== Lần 1: Car (Footway=False, Oneway=True) ===")
+    EXTRACT_FOOTWAY = False
+    EXTRACT_ONEWAY = True
+    process_data(elements, "nodes_car.csv", "edges_car.csv")
+
+    print("\n=== Lần 2: Foot (Footway=True, Oneway=False) ===")
+    EXTRACT_FOOTWAY = True
+    EXTRACT_ONEWAY = False
+    process_data(elements, "nodes_foot.csv", "edges_foot.csv")
 
 
 if __name__ == "__main__":

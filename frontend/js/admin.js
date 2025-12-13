@@ -62,6 +62,9 @@ function showDashboard() {
     if (!map) {
         initMap();
     }
+
+    // Load existing scenarios from the backend
+    loadAndDrawScenarios();
 }
 
 /**
@@ -137,7 +140,7 @@ logoutBtn.addEventListener('click', async () => {
     if (confirm('Are you sure you want to logout?')) {
         await authManager.logout();
         
-        // Reload the page to ensure a clean state
+        // Reload the page to ensure all state is reset and the user is shown the login screen
         window.location.reload();
     }
 });
@@ -147,6 +150,15 @@ logoutBtn.addEventListener('click', async () => {
  */
 toggleDeleteBtn.addEventListener('click', () => {
     isDeleteMode = !isDeleteMode;
+
+    if (isDeleteMode) {
+        // De-select any active scenario when entering delete mode
+        currentScenario = null;
+        scenarioButtons.forEach(b => b.classList.remove('active'));
+        clearTempMarkers();
+        clickPoints = [];
+    }
+
     updateDeleteModeUI();
 });
 
@@ -155,6 +167,15 @@ toggleDeleteBtn.addEventListener('click', () => {
  */
 scenarioButtons.forEach(btn => {
     btn.addEventListener('click', () => {
+        // PREVENT SCENARIO SELECTION IF IN DELETE MODE
+        if (isDeleteMode) {
+            updateStatus('Cannot add new scenarios while in Delete Mode. Disable it first.');
+            // Ensure no scenario is active
+            scenarioButtons.forEach(b => b.classList.remove('active'));
+            currentScenario = null;
+            return; // Stop further execution
+        }
+
         const isAlreadyActive = btn.classList.contains('active');
 
         // Luôn xóa các điểm và marker tạm thời khi có tương tác với nút kịch bản
@@ -181,7 +202,7 @@ scenarioButtons.forEach(btn => {
  * Handle map clicks for scenario drawing
  */
 function onMapClick(e) {
-    if (isDeleteMode) return;
+    if (isDeleteMode) return; // Do nothing if in delete mode
 
     if (!currentScenario) {
         updateStatus('Please select a scenario first.');
@@ -230,7 +251,7 @@ function onMapClick(e) {
 }
 
 function updateDeleteModeUI() {
-    const activeClass = 'btn-warning'; // Use a more semantic class
+    const activeClass = 'active'; // A class to indicate active state
     
     if (isDeleteMode) {
         toggleDeleteBtn.textContent = 'Disable Delete Mode';
@@ -240,7 +261,7 @@ function updateDeleteModeUI() {
         // Update style of existing layers to indicate they are deletable
         scenarioHistory.forEach(scenario => {
             if (scenario.layer && scenario.layer.setStyle) {
-                scenario.layer.setStyle({ dashArray: '5, 5'}); // Only change to dashed line, keep original color
+                scenario.layer.setStyle({ dashArray: '5, 5'}); // A noticeable red
             }
         });
         
@@ -253,7 +274,7 @@ function updateDeleteModeUI() {
         // Revert style for existing layers
         scenarioHistory.forEach(scenario => {
             if (scenario.layer && scenario.layer.setStyle) {
-                // Get original color from the scenario data mapping using the correct key
+                // Get original color from the scenario data mapping
                 const scenarioData = getScenarioData(scenario.scenarioKey);
                 scenario.layer.setStyle({
                     dashArray: null,
@@ -383,7 +404,7 @@ async function applyScenario() {
         } else {
             // Vẽ Chặn đường: Chỉ vẽ ĐƯỜNG THẲNG (Đã bỏ hình tròn ở giữa)
             visualLayer = L.polyline(clickPoints, { 
-                color: scenarioData.color, 
+                color: 'red', 
                 weight: 5 
             });
         }
@@ -394,14 +415,14 @@ async function applyScenario() {
         // If in delete mode, apply the deletable style immediately
         if (isDeleteMode) {
             if (visualLayer.setStyle) {
-                visualLayer.setStyle({ dashArray: '5, 5' });
+                visualLayer.setStyle({ dashArray: '5, 5', color: '#e53e3e' });
             }
         }
         scenarioHistory.push({
             layer: visualLayer,
             request: requestData,
             response: data,
-            scenarioKey: currentScenario // IMPORTANT: Save the original key for UI restoration
+            scenarioKey: currentScenario
         });
         
         updateStatus(`${scenarioData.name} applied! Affected ${data.affected_edges} edges.`);
@@ -470,7 +491,105 @@ function getScenarioData(scenario) {
         }
     };
     
-    return scenarios[scenario] || scenarios['rain-light'];
+    if (scenario) {
+        return scenarios[scenario] || scenarios['rain-light'];
+    }
+    return scenarios; // Return all if no specific scenario is requested
+}
+
+/**
+ * Helper function to find scenario key by penalty and type
+ */
+function findScenarioKey(penalty, type) {
+    const scenarios = getScenarioData(); // Get all scenarios
+    for (const key in scenarios) {
+        if (scenarios[key].type === type && scenarios[key].penalty === penalty) {
+            return key;
+        }
+    }
+    // Fallback for road-block or if not found
+    return type === 'block' ? 'road-block' : 'rain-light'; 
+}
+
+/**
+ * Load existing scenarios from the backend and draw them on the map
+ */
+async function loadAndDrawScenarios() {
+    try {
+        updateStatus('Loading existing scenarios...');
+        const response = await authManager.request('/api/scenarios/');
+        if (!response.ok) {
+            throw new Error('Could not fetch scenarios.');
+        }
+
+        const scenarios = await response.json();
+
+        // Clear any local scenarios before loading from backend
+        clearScenarioHistory();
+        
+        if (scenarios.length === 0) {
+            updateStatus('No active scenarios found. Select a scenario to begin.');
+            return;
+        }
+
+        for (const scenario of scenarios) {
+            const scenarioKey = findScenarioKey(scenario.penalty_weight, scenario.scenario_type);
+            const scenarioData = getScenarioData(scenarioKey);
+            
+            let visualLayer;
+            let clickPoints = [[scenario.line_start.lat, scenario.line_start.lng], [scenario.line_end.lat, scenario.line_end.lng]];
+
+            if (scenario.scenario_type === 'rain') {
+                // For rain, API returns center point as start/end, and radius as threshold
+                const visualCenter = [scenario.line_start.lat, scenario.line_start.lng];
+                const visualRadius = scenario.threshold;
+                visualLayer = L.circle(visualCenter, {
+                    radius: visualRadius,
+                    color: scenarioData.color,
+                    fillColor: scenarioData.color,
+                    fillOpacity: 0.3,
+                    weight: 2
+                });
+            } else { // block
+                visualLayer = L.polyline(clickPoints, { 
+                    color: 'red', 
+                    weight: 5 
+                });
+            }
+            
+            visualLayer.on('click', onScenarioClick);
+            visualLayer.addTo(map);
+
+            // If in delete mode, apply the deletable style immediately
+            if (isDeleteMode) {
+                if (visualLayer.setStyle) {
+                    visualLayer.setStyle({ dashArray: '5, 5', color: '#e53e3e' });
+                }
+            }
+
+            // Reconstruct the scenario object to store in history
+            const historyItem = {
+                layer: visualLayer,
+                // The request object from the backend is what we need
+                request: {
+                    scenario_type: scenario.scenario_type,
+                    line_start: scenario.line_start,
+                    line_end: scenario.line_end,
+                    penalty_weight: scenario.penalty_weight,
+                    threshold: scenario.threshold
+                },
+                response: { /* We don't have this, but it's not critical for deletion */ },
+                scenarioKey: scenarioKey
+            };
+            scenarioHistory.push(historyItem);
+        }
+
+        updateStatus(`Loaded ${scenarios.length} active scenarios.`);
+
+    } catch (error) {
+        console.error('Error loading scenarios:', error);
+        updateStatus('Failed to load existing scenarios.');
+    }
 }
 
 /**

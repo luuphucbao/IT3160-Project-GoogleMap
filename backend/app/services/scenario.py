@@ -41,6 +41,7 @@ class ScenarioService:
             # Copy keys để tránh lỗi runtime nếu dictionary thay đổi kích thước khi split
             edges_list = list(edges_dict.keys())
             for (u, v) in edges_list:
+                
                 # Lấy toạ độ Node từ RAM
                 if u not in nodes or v not in nodes:
                     continue

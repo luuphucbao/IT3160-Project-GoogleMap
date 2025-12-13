@@ -67,23 +67,26 @@ class PathfindingService:
 
     # --- CÁC HÀM HÌNH HỌC & BIẾN ĐỔI GRAPH (CHO YÊU CẦU 1 & 2) ---
 
-    def find_nearest_edge_projection(self, x: float, y: float, vehicle_type: str) -> Optional[Tuple]:
+    def find_top_k_edge_projections(self, x: float, y: float, vehicle_type: str, k: int = 4) -> List[Tuple]:
         """
-        Tìm cạnh gần nhất mà hình chiếu của điểm (x,y) nằm trong đoạn thẳng (tam giác nhọn).
-        Trả về: (u, v, projection_point, distance)
+        Tìm top k cạnh gần nhất mà hình chiếu của điểm (x,y) nằm trong đoạn thẳng.
+        Trả về: List[(u, v, projection_point, distance, t_param)]
         """
         if vehicle_type not in self.graphs:
-            return None
+            return []
         
         graph = self.graphs[vehicle_type]
-        best_dist = float('inf')
-        best_result = None
+        candidates = []
         
         # Duyệt qua tất cả các cạnh
         for (u, v), _ in graph['original_weights'].items():
             if u not in graph['nodes'] or v not in graph['nodes']:
                 continue
-                
+            
+            # Tránh trùng lặp nếu cạnh là 2 chiều (chỉ xử lý u < v nếu v -> u cũng tồn tại)
+            if u > v and (v, u) in graph['original_weights']:
+                continue
+            
             p1 = graph['nodes'][u]
             p2 = graph['nodes'][v]
             
@@ -106,12 +109,11 @@ class PathfindingService:
                 proj_y = p1[1] + t * dy
                 
                 dist = math.sqrt((x - proj_x)**2 + (y - proj_y)**2)
-                
-                if dist < best_dist:
-                    best_dist = dist
-                    best_result = (u, v, (proj_x, proj_y), dist)
-                    
-        return best_result
+                candidates.append((u, v, (proj_x, proj_y), dist, t))
+        
+        # Sắp xếp theo khoảng cách và lấy top k
+        candidates.sort(key=lambda x: x[3])
+        return candidates[:k]
 
     def split_edge(self, u, v, split_point: Tuple[float, float], vehicle_type: str) -> Dict:
         """
@@ -119,7 +121,9 @@ class PathfindingService:
         Trả về thông tin để undo.
         """
         graph = self.graphs[vehicle_type]
-        temp_id = f"temp_{uuid.uuid4().hex[:8]}"
+        # Sử dụng số âm để đảm bảo không trùng với ID dương của DB.
+        # start_node=-1, end_node=-2, nên temp_id sẽ là số âm ngẫu nhiên khác.
+        temp_id = -uuid.uuid4().int
         
         # 1. Thêm node mới
         graph['nodes'][temp_id] = split_point
@@ -182,6 +186,7 @@ class PathfindingService:
     def restore_graph_changes(self, changes: List[Dict], vehicle_type: str):
         """Khôi phục graph dựa trên danh sách thay đổi (Undo)"""
         graph = self.graphs[vehicle_type]
+        # Duyệt ngược để undo theo thứ tự LIFO
         for change in reversed(changes):
             if change['action'] == 'split':
                 temp_id = change['temp_id']
@@ -217,6 +222,20 @@ class PathfindingService:
                     if change['old_w_vu'] is not None:
                         graph['original_weights'][(v, u)] = change['old_w_vu']
                         graph['current_weights'][(v, u)] = change['old_curr_vu']
+
+            elif change['action'] == 'add_node':
+                nid = change['id']
+                if nid in graph['nodes']: del graph['nodes'][nid]
+                if nid in graph['adj_list']: del graph['adj_list'][nid]
+
+            elif change['action'] == 'add_edge':
+                u, v = change['u'], change['v']
+                # Xóa cạnh khỏi adj_list
+                if u in graph['adj_list'] and v in graph['adj_list'][u]:
+                    graph['adj_list'][u].remove(v)
+                # Xóa weights
+                if (u, v) in graph['original_weights']: del graph['original_weights'][(u, v)]
+                if (u, v) in graph['current_weights']: del graph['current_weights'][(u, v)]
 
     # --- CÁC HÀM MỚI ĐỂ SCENARIO SERVICE GỌI ---
     
@@ -374,36 +393,97 @@ class PathfindingService:
         if vehicle_type not in self.graphs:
             return None
         
+        graph = self.graphs[vehicle_type]
         changes = [] # Lưu các thay đổi tạm thời để restore sau
         
         try:
-            # 1. Tìm và thêm điểm Start (Hình chiếu lên cạnh)
-            start_info = self.find_nearest_edge_projection(start_x, start_y, vehicle_type)
-            if start_info:
-                u, v, proj, _ = start_info
-                # Split cạnh để thêm điểm Start vào đồ thị
-                change = self.split_edge(u, v, proj, vehicle_type)
-                changes.append(change)
-                start_node = change['temp_id']
-            else:
-                # Fallback nếu không tìm được hình chiếu (quá xa hoặc lỗi)
-                start_node = self.find_nearest_node(start_x, start_y, vehicle_type)
+            # 1. Tạo đỉnh ảo Start và End
+            start_node_id = -1
+            end_node_id = -2
+            
+            # Thêm node ảo vào graph
+            graph['nodes'][start_node_id] = (start_x, start_y)
+            graph['adj_list'][start_node_id] = []
+            changes.append({'action': 'add_node', 'id': start_node_id})
+            
+            graph['nodes'][end_node_id] = (end_x, end_y)
+            graph['adj_list'][end_node_id] = []
+            changes.append({'action': 'add_node', 'id': end_node_id})
+            
+            # 2. Tìm top-k hình chiếu cho Start và End
+            start_projections = self.find_top_k_edge_projections(start_x, start_y, vehicle_type, k=3)
+            end_projections = self.find_top_k_edge_projections(end_x, end_y, vehicle_type, k=3)
+            
+            # Gom nhóm các yêu cầu split theo cạnh để xử lý trường hợp nhiều điểm trên 1 cạnh
+            # Key: tuple(sorted(u, v)), Value: list of (t, proj, type, dist)
+            split_requests = {}
+            
+            for u, v, proj, dist, t in start_projections:
+                edge_key = tuple(sorted((u, v)))
+                if edge_key not in split_requests: split_requests[edge_key] = []
+                split_requests[edge_key].append({'t': t, 'proj': proj, 'type': 'start', 'dist': dist, 'u': u, 'v': v})
+                
+            for u, v, proj, dist, t in end_projections:
+                edge_key = tuple(sorted((u, v)))
+                if edge_key not in split_requests: split_requests[edge_key] = []
+                split_requests[edge_key].append({'t': t, 'proj': proj, 'type': 'end', 'dist': dist, 'u': u, 'v': v})
+            
+            # 3. Thực hiện split và nối cạnh
+            for edge_key, requests in split_requests.items():
+                # Sắp xếp theo t tăng dần (từ u đến v)
+                # Lưu ý: u, v trong requests có thể ngược nhau nếu đồ thị 2 chiều, cần chuẩn hóa theo edge_key
+                u_orig, v_orig = edge_key
+                
+                # Xác định chiều thực tế của cạnh trong đồ thị
+                actual_u, actual_v = u_orig, v_orig
+                if (u_orig, v_orig) in graph['original_weights']:
+                    actual_u, actual_v = u_orig, v_orig
+                elif (v_orig, u_orig) in graph['original_weights']:
+                    actual_u, actual_v = v_orig, u_orig
+                else:
+                    continue # Cạnh không tồn tại
+                
+                # Chuẩn hóa t về hệ quy chiếu actual_u -> actual_v
+                for req in requests:
+                    if req['u'] != actual_u:
+                        req['t'] = 1.0 - req['t'] # Đảo ngược t nếu cạnh ngược
+                
+                requests.sort(key=lambda r: r['t'])
+                
+                current_u = actual_u
+                current_v = actual_v # Đích cuối cùng
+                
+                for req in requests:
+                    # Split cạnh (current_u, current_v) tại điểm proj
+                    # Lưu ý: split_edge nhận vào u, v hiện tại.
+                    # Vì ta split tuần tự, cạnh (current_u, current_v) luôn tồn tại (hoặc là cạnh gốc hoặc là phần còn lại)
+                    
+                    # Kiểm tra cạnh có tồn tại không (đề phòng lỗi data)
+                    if (current_u, current_v) not in graph['original_weights']:
+                        continue
+                        
+                    change = self.split_edge(current_u, current_v, req['proj'], vehicle_type)
+                    changes.append(change)
+                    
+                    proj_node_id = change['temp_id']
+                    
+                    # Nối điểm ảo với điểm chiếu (2 chiều)
+                    virtual_node = start_node_id if req['type'] == 'start' else end_node_id
+                    w = req['dist']
+                    
+                    if vehicle_type == 'car':
+                        w *= 10
+                    
+                    for (n1, n2) in [(virtual_node, proj_node_id), (proj_node_id, virtual_node)]:
+                        graph['adj_list'][n1].append(n2)
+                        graph['original_weights'][(n1, n2)] = w
+                        graph['current_weights'][(n1, n2)] = w
+                        changes.append({'action': 'add_edge', 'u': n1, 'v': n2})
+                    
+                    current_u = proj_node_id # Cập nhật điểm bắt đầu cho đoạn tiếp theo
 
-            # 2. Tìm và thêm điểm End
-            end_info = self.find_nearest_edge_projection(end_x, end_y, vehicle_type)
-            if end_info:
-                u, v, proj, _ = end_info
-                change = self.split_edge(u, v, proj, vehicle_type)
-                changes.append(change)
-                end_node = change['temp_id']
-            else:
-                end_node = self.find_nearest_node(end_x, end_y, vehicle_type)
-            
-            if start_node is None or end_node is None:
-                return None
-            
             # 3. Tìm đường
-            result = self.a_star(start_node, end_node, vehicle_type, speed)
+            result = self.a_star(start_node_id, end_node_id, vehicle_type, speed)
             return result
             
         finally:
