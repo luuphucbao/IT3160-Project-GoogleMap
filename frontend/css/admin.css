@@ -278,6 +278,28 @@ body {
     color: #666;
 }
 
+/* Custom styles for Toggle Delete Btn */
+#toggleDeleteBtn {
+    background-color: #ffffff;
+    color: #000000;
+    border: 1px solid #ccc;
+    width: 100%;
+}
+
+#toggleDeleteBtn:hover {
+    background-color: #f0f0f0;
+}
+
+#toggleDeleteBtn.btn-warning {
+    background-color: #f97316; /* Orange */
+    color: #ffffff;
+    border-color: #f97316;
+}
+
+#toggleDeleteBtn.btn-warning:hover {
+    background-color: #ea580c; /* Darker Orange */
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
     .dashboard-container {

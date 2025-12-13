@@ -137,10 +137,8 @@ logoutBtn.addEventListener('click', async () => {
     if (confirm('Are you sure you want to logout?')) {
         await authManager.logout();
         
-        // Reset state
-        currentScenario = null;
-        clickPoints = [];
-        clearScenarioHistory();
+        // Reload the page to ensure a clean state
+        window.location.reload();
     }
 });
 
@@ -232,7 +230,7 @@ function onMapClick(e) {
 }
 
 function updateDeleteModeUI() {
-    const activeClass = 'active'; // A class to indicate active state
+    const activeClass = 'btn-warning'; // Use a more semantic class
     
     if (isDeleteMode) {
         toggleDeleteBtn.textContent = 'Disable Delete Mode';
@@ -242,7 +240,7 @@ function updateDeleteModeUI() {
         // Update style of existing layers to indicate they are deletable
         scenarioHistory.forEach(scenario => {
             if (scenario.layer && scenario.layer.setStyle) {
-                scenario.layer.setStyle({ dashArray: '5, 5', color: '#e53e3e' }); // A noticeable red
+                scenario.layer.setStyle({ dashArray: '5, 5'}); // Only change to dashed line, keep original color
             }
         });
         
@@ -255,8 +253,8 @@ function updateDeleteModeUI() {
         // Revert style for existing layers
         scenarioHistory.forEach(scenario => {
             if (scenario.layer && scenario.layer.setStyle) {
-                // Get original color from the scenario data mapping
-                const scenarioData = getScenarioData(scenario.request.scenario_type);
+                // Get original color from the scenario data mapping using the correct key
+                const scenarioData = getScenarioData(scenario.scenarioKey);
                 scenario.layer.setStyle({
                     dashArray: null,
                     color: scenarioData.color
@@ -385,7 +383,7 @@ async function applyScenario() {
         } else {
             // Vẽ Chặn đường: Chỉ vẽ ĐƯỜNG THẲNG (Đã bỏ hình tròn ở giữa)
             visualLayer = L.polyline(clickPoints, { 
-                color: 'red', 
+                color: scenarioData.color, 
                 weight: 5 
             });
         }
@@ -396,13 +394,14 @@ async function applyScenario() {
         // If in delete mode, apply the deletable style immediately
         if (isDeleteMode) {
             if (visualLayer.setStyle) {
-                visualLayer.setStyle({ dashArray: '5, 5', color: '#e53e3e' });
+                visualLayer.setStyle({ dashArray: '5, 5' });
             }
         }
         scenarioHistory.push({
             layer: visualLayer,
             request: requestData,
-            response: data
+            response: data,
+            scenarioKey: currentScenario // IMPORTANT: Save the original key for UI restoration
         });
         
         updateStatus(`${scenarioData.name} applied! Affected ${data.affected_edges} edges.`);
