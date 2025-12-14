@@ -5,7 +5,6 @@ Implements A* algorithm with In-Memory Graph capability for high performance
 import ast
 import heapq
 import math
-import uuid
 from typing import List, Tuple, Dict, Optional
 from app.database import get_db_connection
 from app.config import get_settings
@@ -475,6 +474,8 @@ class PathfindingService:
                     virtual_node = start_node_id if req['type'] == 'start' else end_node_id
                     w = req['dist']
                     
+                    if vehicle_type == 'foot':
+                        w *= 1.5
                     if vehicle_type == 'car':
                         w *= 10
                     
