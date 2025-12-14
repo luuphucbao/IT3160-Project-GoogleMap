@@ -24,6 +24,9 @@ class PathfindingService:
         # Mapping để truy cập nhanh
         self.vehicle_types = ['car', 'foot']
         
+        # Counter để sinh ID tạm thời (âm), bắt đầu từ -10 để tránh -1, -2
+        self.temp_node_counter = -10
+        
         # Tải dữ liệu 1 lần duy nhất khi khởi động
         self.load_graph_from_db()
     
@@ -123,7 +126,8 @@ class PathfindingService:
         graph = self.graphs[vehicle_type]
         # Sử dụng số âm để đảm bảo không trùng với ID dương của DB.
         # start_node=-1, end_node=-2, nên temp_id sẽ là số âm ngẫu nhiên khác.
-        temp_id = -uuid.uuid4().int
+        self.temp_node_counter -= 1
+        temp_id = self.temp_node_counter
         
         # 1. Thêm node mới
         graph['nodes'][temp_id] = split_point
