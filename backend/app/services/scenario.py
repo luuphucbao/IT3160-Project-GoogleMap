@@ -147,9 +147,9 @@ class ScenarioService:
                                     affected_edges_by_type[v_type].append((v, current_u))
 
                 else:
-                    # --- TRƯỜNG HỢP CHẶN ĐƯỜNG (ĐOẠN THẲNG) ---
-                    # Kiểm tra giao nhau giữa 2 đoạn thẳng: (p1, p2) và (line_p1, line_p2)
-                    if self._segments_intersect(p1, p2, line_p1, line_p2):
+                    # --- TRƯỜNG HỢP CHẶN ĐƯỜNG (HÌNH CHỮ NHẬT) ---
+                    # line_p1, line_p2 là 2 điểm chéo của hình chữ nhật
+                    if self._segment_intersects_rectangle(p1, p2, line_p1, line_p2):
                         affected_edges_by_type[v_type].append((u, v))
                 
         return affected_edges_by_type, structural_changes
@@ -202,8 +202,8 @@ class ScenarioService:
                 if self._segment_intersects_circle(p1, p2, s_p1, threshold):
                     penalty_multiplier *= p_val
             else:
-                # Đoạn thẳng (Chặn)
-                if self._segments_intersect(p1, p2, s_p1, s_p2):
+                # Hình chữ nhật (Chặn)
+                if self._segment_intersects_rectangle(p1, p2, s_p1, s_p2):
                     penalty_multiplier *= p_val
                     
         return penalty_multiplier
@@ -223,6 +223,31 @@ class ScenarioService:
         if 0 < t < 1:
             cx, cy = p1[0] + t*dx, p1[1] + t*dy
             if (cx - center[0])**2 + (cy - center[1])**2 <= r_sq: return True
+        return False
+
+    def _segment_intersects_rectangle(self, p1, p2, r1, r2):
+        """Kiểm tra đoạn thẳng p1-p2 có cắt hoặc nằm trong hình chữ nhật r1-r2"""
+        min_x = min(r1[0], r2[0])
+        max_x = max(r1[0], r2[0])
+        min_y = min(r1[1], r2[1])
+        max_y = max(r1[1], r2[1])
+
+        # 1. Kiểm tra điểm nằm trong (Một trong 2 đầu mút nằm trong hình chữ nhật)
+        if (min_x <= p1[0] <= max_x and min_y <= p1[1] <= max_y) or \
+           (min_x <= p2[0] <= max_x and min_y <= p2[1] <= max_y):
+            return True
+            
+        # 2. Kiểm tra cắt 4 cạnh của hình chữ nhật
+        c1 = (min_x, min_y)
+        c2 = (max_x, min_y)
+        c3 = (max_x, max_y)
+        c4 = (min_x, max_y)
+        
+        if self._segments_intersect(p1, p2, c1, c2): return True
+        if self._segments_intersect(p1, p2, c2, c3): return True
+        if self._segments_intersect(p1, p2, c3, c4): return True
+        if self._segments_intersect(p1, p2, c4, c1): return True
+        
         return False
 
     def _segments_intersect(self, p1, p2, p3, p4):

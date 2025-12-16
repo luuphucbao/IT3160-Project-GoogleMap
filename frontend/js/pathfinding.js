@@ -101,7 +101,14 @@ function setupEventListeners() {
     // Listen for storage changes to auto-refresh path on scenario updates
     window.addEventListener('storage', (e) => {
         if (e.key === 'scenarios_updated') {
-            if (currentPath) {
+            // Kiểm tra xem có tọa độ hợp lệ không để tính lại, kể cả khi currentPath đang null (do bị Blocked)
+            const sX = parseFloat(startXInput.value);
+            const sY = parseFloat(startYInput.value);
+            const eX = parseFloat(endXInput.value);
+            const eY = parseFloat(endYInput.value);
+            const hasCoords = !isNaN(sX) && !isNaN(sY) && !isNaN(eX) && !isNaN(eY);
+
+            if (currentPath || hasCoords) {
                 updateStatus('🔄 Scenarios updated by admin. Recalculating path...');
                 findPath();
             }

@@ -402,10 +402,11 @@ async function applyScenario() {
                 weight: 2
             });
         } else {
-            // Vẽ Chặn đường: Chỉ vẽ ĐƯỜNG THẲNG (Đã bỏ hình tròn ở giữa)
-            visualLayer = L.polyline(clickPoints, { 
-                color: 'red', 
-                weight: 5 
+            // Vẽ Chặn đường: Hình chữ nhật
+            visualLayer = L.rectangle(clickPoints, { 
+                color: scenarioData.color || 'red', 
+                weight: 2,
+                fillOpacity: 0.3
             });
         }
         
@@ -551,9 +552,10 @@ async function loadAndDrawScenarios() {
                     weight: 2
                 });
             } else { // block
-                visualLayer = L.polyline(clickPoints, { 
-                    color: 'red', 
-                    weight: 5 
+                visualLayer = L.rectangle(clickPoints, { 
+                    color: scenarioData.color || 'red', 
+                    weight: 2,
+                    fillOpacity: 0.3
                 });
             }
             
