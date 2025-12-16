@@ -181,6 +181,50 @@ class ScenarioService:
         """Xóa sạch sành sanh"""
         self.active_scenarios = []
 
+    def calculate_segment_penalty(self, p1: Tuple[float, float], p2: Tuple[float, float]) -> float:
+        """Tính toán penalty cho đoạn thẳng p1-p2 dựa trên các kịch bản active"""
+        penalty_multiplier = 1.0
+        
+        for scenario in self.active_scenarios:
+            s_p1 = scenario.get('line_p1')
+            s_p2 = scenario.get('line_p2')
+            threshold = scenario.get('threshold', 0)
+            p_val = scenario.get('penalty', 1.0)
+            
+            if not s_p1 or not s_p2:
+                continue
+                
+            dx = s_p2[0] - s_p1[0]
+            dy = s_p2[1] - s_p1[1]
+            
+            if dx == 0 and dy == 0:
+                # Hình tròn (Mưa)
+                if self._segment_intersects_circle(p1, p2, s_p1, threshold):
+                    penalty_multiplier *= p_val
+            else:
+                # Đoạn thẳng (Chặn)
+                if self._segments_intersect(p1, p2, s_p1, s_p2):
+                    penalty_multiplier *= p_val
+                    
+        return penalty_multiplier
+
+    def _segment_intersects_circle(self, p1, p2, center, radius):
+        """Kiểm tra đoạn thẳng p1-p2 có cắt hình tròn (center, radius) không"""
+        d1_sq = (p1[0] - center[0])**2 + (p1[1] - center[1])**2
+        d2_sq = (p2[0] - center[0])**2 + (p2[1] - center[1])**2
+        r_sq = radius**2
+        
+        if d1_sq <= r_sq or d2_sq <= r_sq: return True
+        
+        dx, dy = p2[0] - p1[0], p2[1] - p1[1]
+        if dx == 0 and dy == 0: return False
+        
+        t = ((center[0] - p1[0])*dx + (center[1] - p1[1])*dy) / (dx*dx + dy*dy)
+        if 0 < t < 1:
+            cx, cy = p1[0] + t*dx, p1[1] + t*dy
+            if (cx - center[0])**2 + (cy - center[1])**2 <= r_sq: return True
+        return False
+
     def _segments_intersect(self, p1, p2, p3, p4):
         """Kiểm tra 2 đoạn thẳng p1-p2 và p3-p4 có cắt nhau không"""
         def ccw(A, B, C):

@@ -179,6 +179,16 @@ async function findPath() {
         
         const data = await response.json();
         
+        if (data.cost === 'Blocked') {
+            MapModule.clearPath();
+            MapModule.addMarker(startX, startY, 'start');
+            MapModule.addMarker(endX, endY, 'end');
+            pathInfo.innerHTML = '<div style="text-align: center; color: #ef4444; font-weight: bold; font-size: 1.2em; padding: 10px;">Blocked</div>';
+            updateStatus('⚠️ Path is blocked.');
+            currentPath = null;
+            return;
+        }
+        
         // Draw path on map
         MapModule.drawPath(data.path);
         
@@ -190,14 +200,11 @@ async function findPath() {
         
     } catch (error) {
         console.error('Error finding path:', error);
-        
-        // Display the specific error detail if available
-        const errorMessage = error.message.startsWith('Failed') 
-            ? 'Could not calculate path. Make sure start/end points are near valid nodes.' 
-            : error.message;
-            
-        updateStatus(`❌ Error finding path: ${errorMessage}`);
-        showErrorInfo(errorMessage);
+        MapModule.clearPath();
+        MapModule.addMarker(startX, startY, 'start');
+        MapModule.addMarker(endX, endY, 'end');
+        pathInfo.innerHTML = '<div style="text-align: center; color: #ef4444; font-weight: bold; font-size: 1.2em; padding: 10px;">No path found</div>';
+        updateStatus(`❌ Error finding path: ${error.message}`);
     } finally {
         showLoading(false);
     }

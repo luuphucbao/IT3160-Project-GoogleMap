@@ -432,6 +432,10 @@ class PathfindingService:
                 split_requests[edge_key].append({'t': t, 'proj': proj, 'type': 'end', 'dist': dist, 'u': u, 'v': v})
             
             # 3. Thực hiện split và nối cạnh
+            # Import ScenarioService để tính penalty cho cạnh ảo
+            from app.services.scenario import get_scenario_service
+            scenario_service = get_scenario_service()
+
             for edge_key, requests in split_requests.items():
                 # Sắp xếp theo t tăng dần (từ u đến v)
                 # Lưu ý: u, v trong requests có thể ngược nhau nếu đồ thị 2 chiều, cần chuẩn hóa theo edge_key
@@ -475,14 +479,20 @@ class PathfindingService:
                     w = req['dist']
                     
                     if vehicle_type == 'foot':
-                        w *= 1.5
+                        w *= 1.25
                     if vehicle_type == 'car':
                         w *= 10
                     
+                    # Áp dụng kịch bản cho cạnh ảo
+                    p_start = graph['nodes'][virtual_node]
+                    p_end = graph['nodes'][proj_node_id]
+                    penalty = scenario_service.calculate_segment_penalty(p_start, p_end)
+                    w_final = w * penalty
+
                     for (n1, n2) in [(virtual_node, proj_node_id), (proj_node_id, virtual_node)]:
                         graph['adj_list'][n1].append(n2)
                         graph['original_weights'][(n1, n2)] = w
-                        graph['current_weights'][(n1, n2)] = w
+                        graph['current_weights'][(n1, n2)] = w_final
                         changes.append({'action': 'add_edge', 'u': n1, 'v': n2})
                     
                     current_u = proj_node_id # Cập nhật điểm bắt đầu cho đoạn tiếp theo
