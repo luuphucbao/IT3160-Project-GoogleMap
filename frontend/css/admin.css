@@ -153,6 +153,11 @@ body {
     border-color: #667eea;
 }
 
+.btn.active {
+    outline: 2px solid #3b82f6;
+    box-shadow: inset 0 0 0 2px rgba(59,130,246,0.08);
+}
+
 .btn-danger {
     background: #e53e3e;
     color: white;
@@ -231,12 +236,58 @@ body {
 
 /* Sidebar */
 .sidebar {
-    width: 300px;
+    width: 360px;
+    max-width: 40%;
     background: white;
     border-radius: 12px;
     padding: 20px;
     overflow-y: auto;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+/* Tabs */
+.tabs-header {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    border-bottom: 2px solid #e0e0e0;
+    padding-bottom: 10px;
+}
+
+.tab-btn {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    background: none;
+    font-weight: 600;
+    color: #666;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.3s;
+}
+
+.tab-btn:hover {
+    background: #f7fafc;
+    color: #333;
+}
+
+.tab-btn.active {
+    background: #667eea;
+    color: white;
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+    animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 .control-panel h3 {
@@ -277,6 +328,75 @@ body {
     color: #666;
     font-size: 14px;
     line-height: 1.8;
+}
+
+/* Pathfinding Styles in Admin */
+.input-group {
+    margin-top: 12px;
+}
+
+.coordinate-inputs {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.coordinate-inputs input {
+    flex: 1;
+    padding: 8px;
+    border: 2px solid #e0e0e0;
+    border-radius: 6px;
+}
+
+/* Path Information Styling (Matching index.html) */
+.panel-section h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 12px;
+    margin-top: 0;
+}
+
+.path-info {
+    background-color: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 16px;
+}
+
+.info-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.info-item:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.info-item:first-child {
+    padding-top: 0;
+}
+
+.info-label {
+    color: #6b7280;
+    font-size: 0.95rem;
+}
+
+.info-value {
+    color: #111827;
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.no-data {
+    color: #9ca3af;
+    text-align: center;
+    font-style: italic;
+    padding: 10px 0;
 }
 
 /* Map Container */

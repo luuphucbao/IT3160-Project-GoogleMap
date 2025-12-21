@@ -3,6 +3,7 @@
  * Handles user interactions and API calls
  */
 
+(function() {
 const API_BASE_URL = 'http://localhost:8000';
 
 // DOM Elements
@@ -20,13 +21,9 @@ const loadingOverlay = document.getElementById('loadingOverlay');
 const btnFoot = document.getElementById('btnFoot');
 const btnCar = document.getElementById('btnCar');
 
-// NEW: DOM Element for the Show Nodes button
-const showNodesBtn = document.getElementById('showNodesBtn'); 
-
 // State
 let selectingMode = null; // 'start' or 'end'
 let currentPath = null;
-let nodesShown = false; // <-- NEW: State to track node visibility
 let selectedVehicle = 'foot'; // Default vehicle
 
 const SPEED_CAR = 11.1; // ~40 km/h in m/s
@@ -36,8 +33,10 @@ const SPEED_FOOT = 1.4; // ~5 km/h in m/s
  * Initialize the application
  */
 function init() {
-    // Initialize map
-    MapModule.init(AppConfig.MAP_IMAGE_URL_USER);
+    // Initialize map only if not already initialized (e.g. by admin.js)
+    if (!MapModule.getMap()) {
+        MapModule.init(AppConfig.MAP_IMAGE_URL_USER);
+    }
     
     // Setup event listeners
     setupEventListeners();
@@ -75,11 +74,14 @@ function setupEventListeners() {
     btnCar.addEventListener('click', () => toggleVehicle('car', btnCar, btnFoot));
     btnFoot.addEventListener('click', () => toggleVehicle('foot', btnFoot, btnCar));
 
-    // NEW: Toggle Nodes button
-    // showNodesBtn.addEventListener('click', toggleShowNodes); 
-    
     // Map click handler
     MapModule.onMapClick((x, y) => {
+        // ADMIN MODE CHECK: If we are in admin dashboard, only process click if Pathfinding tab is active
+        const pathfindingTab = document.getElementById('tab-pathfinding');
+        if (pathfindingTab && !pathfindingTab.classList.contains('active')) {
+            return;
+        }
+
         History.save(); // Save state before changing it
         if (selectingMode === 'start') {
             startXInput.value = Math.round(x);
@@ -143,6 +145,7 @@ function toggleVehicle(type, btnClicked, btnOther) {
  * Find optimal path between start and end points
  */
 
+window.findPath = findPath; // Export for external use
 async function findPath() {
     History.save(); // Save state before finding a new path
     // Validate inputs
@@ -218,67 +221,6 @@ async function findPath() {
 }
 
 /**
- * NEW: Toggle visibility of all nodes from the database
- */
-
-function toggleShowNodes() {
-    if (nodesShown) {
-        // Hide nodes
-        MapModule.clearNodes();
-        showNodesBtn.textContent = '🟠 Toggle All Nodes';
-        showNodesBtn.style.backgroundColor = '#f97316';
-        updateStatus('Nodes ẩn. Sẵn sàng.');
-        nodesShown = false;
-    } else {
-        // Show nodes
-        fetchAndShowNodes();
-    }
-}
-
-
-/**
- * NEW: Fetch all nodes from API and display them on the map
- */
-
-async function fetchAndShowNodes() {
-    showLoading(true);
-    updateStatus('⏳ Đang tải dữ liệu nodes...');
-
-    try {
-        // Assuming API endpoint is /nodes as discussed
-        const response = await fetch(`${API_BASE_URL}/api/nodes`); 
-        
-        if (!response.ok) {
-            throw new Error(`API call failed with status: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
-        if (data.nodes && data.nodes.length > 0) {
-            // Use the exported function from MapModule (already in map.js)
-            const correctedNodes = data.nodes.map(node => ({ ...node, y: AppConfig.MAP_HEIGHT - node.y }));
-
-            // Use the exported function from MapModule (already in map.js)
-            MapModule.showAllNodes(correctedNodes);
-            
-            nodesShown = true;
-            showNodesBtn.textContent = '✅ Hide All Nodes';
-            showNodesBtn.style.backgroundColor = '#10b981'; // Green color for active state
-            updateStatus(`✅ Đã tải và hiển thị ${data.nodes.length} nodes.`);
-        } else {
-            updateStatus('⚠️ Không tìm thấy nodes nào trong cơ sở dữ liệu.');
-        }
-
-    } catch (error) {
-        console.error('Error fetching and showing nodes:', error);
-        updateStatus('❌ Lỗi khi tải nodes. Vui lòng kiểm tra API server (endpoint /nodes).');
-    } finally {
-        showLoading(false);
-    }
-}
-
-
-/**
  * Generate mock path data for demonstration
  */
 /*
@@ -312,6 +254,14 @@ function generateMockPath(startX, startY, endX, endY) {
  * Display path information
  */
 function displayPathInfo(data) {
+    // Convert seconds to minutes and seconds
+    const totalSeconds = parseFloat(data.cost);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = Math.round(totalSeconds % 60);
+    const timeDisplay = minutes > 0 
+        ? `${minutes} phút ${seconds} giây` 
+        : `${seconds} giây`;
+
     pathInfo.innerHTML = `
         <div class="info-item">
             <span class="info-label">Distance (mét):</span>
@@ -322,8 +272,8 @@ function displayPathInfo(data) {
             <span class="info-value">${data.nodes}</span>
         </div>
         <div class="info-item">
-            <span class="info-label">Time (giây):</span>
-            <span class="info-value">${data.cost} </span>
+            <span class="info-label">Time:</span>
+            <span class="info-value">${timeDisplay}</span>
         </div>
     `;
 }
@@ -365,14 +315,6 @@ function clearAll() {
     // document.getElementById('btnFoot').classList.add('active');
     // document.getElementById('btnCar').classList.remove('active');
     
-    // Clear nodes if shown
-    if (nodesShown) {
-        MapModule.clearNodes();
-        nodesShown = false;
-        showNodesBtn.textContent = '🟠 Toggle All Nodes';
-        showNodesBtn.style.backgroundColor = '#f97316';
-    }
-    
     updateStatus('Ready. Click on the map or enter coordinates to begin.');
 }
 
@@ -392,3 +334,4 @@ function showLoading(show) {
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', init);
+})();

@@ -48,54 +48,89 @@
             <!-- Sidebar Controls -->
             <aside class="sidebar">
                 <div class="control-panel">
-                    <h3>Scenario Controls</h3>
-                    
-                    <div class="control-section">
-                        <h4>🌧️ Rain Scenario</h4>
-                        <div class="button-group">
-                            <button class="btn btn-scenario" data-scenario="rain-light">
-                                Light Rain
-                            </button>
-                            <button class="btn btn-scenario" data-scenario="rain-medium">
-                                Medium Rain
-                            </button>
-                            <button class="btn btn-scenario" data-scenario="rain-heavy">
-                                Heavy Rain
-                            </button>
-                            <button class="btn btn-scenario" data-scenario="rain-extreme">
-                                Extreme Rain
-                            </button>
+                    <!-- Tabs Header -->
+                    <div class="tabs-header">
+                        <button class="tab-btn active" data-tab="scenarios">Scenarios</button>
+                        <button class="tab-btn" data-tab="pathfinding">Pathfinding</button>
+                    </div>
+
+                    <!-- Tab 1: Scenarios -->
+                    <div id="tab-scenarios" class="tab-content active">
+                        <h3>Scenario Controls</h3>
+                        
+                        <div class="control-section">
+                            <h4>🌧️ Rain Scenario</h4>
+                            <div class="button-group">
+                                <button class="btn btn-scenario" data-scenario="rain-light">Light Rain</button>
+                                <button class="btn btn-scenario" data-scenario="rain-medium">Medium Rain</button>
+                                <button class="btn btn-scenario" data-scenario="rain-heavy">Heavy Rain</button>
+                                <button class="btn btn-scenario" data-scenario="rain-extreme">Extreme Rain</button>
+                            </div>
+                        </div>
+
+                        <div class="control-section">
+                            <h4>🚫 Road Block</h4>
+                            <button class="btn btn-scenario" data-scenario="road-block">Add Road Block</button>
+                        </div>
+
+                        <div class="control-section">
+                            <h4>🔄 Node Management</h4>
+                            <div class="button-group">
+                                <button id="toggleDeleteBtn" class="btn btn-warning">Enable Delete Mode</button>
+                                <button id="clearAllBtn" class="btn btn-danger">Clear All Scenarios</button>
+                            </div>
+                        </div>
+
+                        <div class="instructions">
+                            <h4>📝 Instructions</h4>
+                            <ol>
+                                <li>Select a scenario type</li>
+                                <li>Click two points on map to draw affected area</li>
+                                <li>Scenario will be applied to nearby edges</li>
+                                <li>Use Clear button to reset</li>
+                            </ol>
                         </div>
                     </div>
 
-                    <div class="control-section">
-                        <h4>🚫 Road Block</h4>
-                        <button class="btn btn-scenario" data-scenario="road-block">
-                            Add Road Block
-                        </button>
-                    </div>
+                    <!-- Tab 2: Pathfinding -->
+                    <div id="tab-pathfinding" class="tab-content">
+                        <h3>📍 Pathfinding</h3>
+                        
+                        <div class="input-group">
+                            <label for="startX">Start Point (X, Y)</label>
+                            <div class="coordinate-inputs">
+                                <input type="number" id="startX" placeholder="X" min="0" max="8500">
+                                <input type="number" id="startY" placeholder="Y" min="0" max="7801">
+                            </div>
+                            <button id="selectStartBtn" class="btn btn-secondary" style="margin-top:10px; width:100%">📍 Select START on Map</button>
+                        </div>
 
-                    <div class="control-section">
-                        <h4>🔄 Node Management</h4>
-                        <div class="button-group">
-                            <button id="toggleDeleteBtn" class="btn btn-warning">
-                                Enable Delete Mode
-                            </button>
-                            <button id="clearAllBtn" class="btn btn-danger">
-                                Clear All Scenarios
-                            </button>
+                        <div class="input-group">
+                            <label for="endX">End Point (X, Y)</label>
+                            <div class="coordinate-inputs">
+                                <input type="number" id="endX" placeholder="X" min="0" max="8500">
+                                <input type="number" id="endY" placeholder="Y" min="0" max="701">
+                            </div>
+                            <button id="selectEndBtn" class="btn btn-secondary" style="margin-top:10px; width:100%">📍 Select END on Map</button>
+                        </div>
+
+                        <div style="display:flex; gap:10px; margin-top:16px;">
+                            <button id="btnFoot" class="btn active" style="flex:1; padding:10px;">🚶 Foot</button>
+                            <button id="btnCar" class="btn" style="flex:1; padding:10px;">🚗 Car</button>
+                        </div>
+
+                        <div style="display:flex; gap:10px; margin-top:10px;">
+                            <button id="findPathBtn" class="btn btn-primary" style="flex:2;">🔍 Find Path</button>
+                            <button id="clearBtn" class="btn btn-secondary" style="flex:1;">🔄 Clear</button>
+                        </div>
+
+                        <div class="panel-section" style="margin-top:18px;">
+                            <h3>📊 Path Information</h3>
+                            <div id="pathInfo" class="path-info" style="margin-top:8px;">
+                                <p class="no-data">No path calculated yet</p>
+                            </div>
                         </div>
                     </div>
-                </div>
-
-                <div class="instructions">
-                    <h4>📝 Instructions</h4>
-                    <ol>
-                        <li>Select a scenario type</li>
-                        <li>Click two points on map to draw affected area</li>
-                        <li>Scenario will be applied to nearby edges</li>
-                        <li>Use Clear button to reset</li>
-                    </ol>
                 </div>
             </aside>
 
@@ -109,9 +144,17 @@
         </div>
     </div>
 
+    <!-- Loading Overlay for Pathfinding -->
+    <div id="loadingOverlay" class="loading-overlay" style="display: none; position:fixed; inset:0; background:rgba(0,0,0,0.3); z-index:2000; align-items:center; justify-content:center; color:white;">
+        <p>Processing...</p>
+    </div>
+
     <!-- Scripts -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="js/config.js"></script>
+    <script src="js/map.js"></script>
+    <script src="js/history.js"></script>
+    <script src="js/pathfinding.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/admin.js"></script>
 </body>

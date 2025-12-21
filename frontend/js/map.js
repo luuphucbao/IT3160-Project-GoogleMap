@@ -3,6 +3,7 @@
  * Handles map initialization and path visualization
  */
 
+(function() {
 // Map configuration
 let map;
 let pathLayer;
@@ -14,6 +15,8 @@ let nodeLayer; // <-- added to hold all nodes layer
  * Initialize the map with local image
  */
 function initializeMap(imageUrl) {
+    if (map) return; // Prevent re-initialization
+
     // Create map with CRS.Simple for pixel coordinates
     map = L.map('map', {
         crs: L.CRS.Simple,
@@ -304,3 +307,4 @@ window.MapModule = {
     setStartMarker,
     setEndMarker,
 };
+})();

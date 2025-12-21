@@ -3,6 +3,7 @@
  * Handles login, logout, token management, and API requests
  */
 
+(function() {
 const API_BASE_URL = 'http://localhost:8000';
 
 class AuthManager {
@@ -210,4 +211,5 @@ class AuthManager {
 }
 
 // Export singleton instance
-const authManager = new AuthManager();
+window.authManager = new AuthManager();
+})();

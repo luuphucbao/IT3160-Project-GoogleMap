@@ -3,6 +3,7 @@
  * Handles login UI, map initialization, and scenario management
  */
 
+(function() {
 // DOM Elements
 const loginModal = document.getElementById('loginModal');
 const loginForm = document.getElementById('loginForm');
@@ -14,6 +15,8 @@ const statusMessage = document.getElementById('statusMessage');
 const scenarioButtons = document.querySelectorAll('.btn-scenario');
 const clearAllBtn = document.getElementById('clearAllBtn');
 const toggleDeleteBtn = document.getElementById('toggleDeleteBtn');
+const tabButtons = document.querySelectorAll('.tab-btn');
+const tabContents = document.querySelectorAll('.tab-content');
 
 // State
 let map;
@@ -63,6 +66,14 @@ function showDashboard() {
         initMap();
     }
 
+    // FIX: Force map resize to ensure it renders correctly after being unhidden
+    // This fixes the issue where the map appears grey or blank because it was initialized in a hidden div
+    setTimeout(() => {
+        if (map) {
+            map.invalidateSize();
+        }
+    }, 100);
+
     // Load existing scenarios from the backend
     loadAndDrawScenarios();
 }
@@ -71,38 +82,16 @@ function showDashboard() {
  * Initialize Leaflet map with local image
  */
 function initMap() {
-    // Create map with CRS.Simple for pixel coordinates
-    map = L.map('map', {
-        crs: L.CRS.Simple,
-        minZoom: -3,
-        maxZoom: 2,
-        zoomSnap: 0.25,
-        zoomDelta: 0.25
-    });
-    
-    // Calculate bounds for the image
-    // Leaflet uses [y, x] format, so [height, width]
-    const bounds = [[0, 0], [AppConfig.MAP_HEIGHT, AppConfig.MAP_WIDTH]];
-    
-    // Set the map bounds to prevent dragging outside the image
-    map.setMaxBounds(bounds);
-    map.on('drag', function() {
-        map.panInsideBounds(bounds, { animate: false });
-    });
-
-    // Add the local map image
-    L.imageOverlay(AppConfig.MAP_IMAGE_URL_ADMIN, bounds).addTo(map);
-    
-    // Set the map bounds
-    map.fitBounds(bounds);
-    
-    // Set initial view to center of map
-    map.setView([AppConfig.MAP_HEIGHT / 2, AppConfig.MAP_WIDTH / 2], -1);
+    // Use MapModule to initialize map (shared with pathfinding.js)
+    MapModule.init(AppConfig.MAP_IMAGE_URL_ADMIN);
+    map = MapModule.getMap();
     
     // Add click handler for scenario drawing
-    map.on('click', onMapClick);
-    
-    updateStatus('Map initialized. Select a scenario to begin.');
+    // Note: pathfinding.js adds its own listener via MapModule.onMapClick
+    if (map) {
+        map.on('click', onMapClick);
+        updateStatus('Map initialized. Select a scenario to begin.');
+    }
 }
 
 /**
@@ -143,6 +132,42 @@ logoutBtn.addEventListener('click', async () => {
         // Reload the page to ensure all state is reset and the user is shown the login screen
         window.location.reload();
     }
+});
+
+/**
+ * Handle Tab Switching
+ */
+tabButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+        const tabName = btn.dataset.tab;
+        
+        // Update buttons
+        tabButtons.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        
+        // Update content
+        tabContents.forEach(content => {
+            content.classList.remove('active');
+            if (content.id === `tab-${tabName}`) {
+                content.classList.add('active');
+            }
+        });
+
+        // Reset states when switching
+        if (tabName === 'pathfinding') {
+            // Disable scenario stuff
+            currentScenario = null;
+            scenarioButtons.forEach(b => b.classList.remove('active'));
+            clearTempMarkers();
+            updateStatus('Pathfinding Mode. Select Start/End points.');
+        } else {
+            // Disable pathfinding selection (handled in pathfinding.js via tab visibility check)
+            updateStatus('Scenario Mode. Select a scenario type.');
+        }
+        
+        // Resize map again just in case tab switching affects layout
+        if (map) setTimeout(() => map.invalidateSize(), 100);
+    });
 });
 
 /**
@@ -202,6 +227,10 @@ scenarioButtons.forEach(btn => {
  * Handle map clicks for scenario drawing
  */
 function onMapClick(e) {
+    // Only process scenario clicks if Scenario tab is active
+    const scenarioTab = document.getElementById('tab-scenarios');
+    if (scenarioTab && !scenarioTab.classList.contains('active')) return;
+
     if (isDeleteMode) return; // Do nothing if in delete mode
 
     if (!currentScenario) {
@@ -438,6 +467,7 @@ async function applyScenario() {
 
         // Signal other tabs that scenarios have changed
         localStorage.setItem('scenarios_updated', new Date().toISOString());
+        triggerPathUpdate(); // Auto-update path
         
     } catch (error) {
         console.error('Error applying scenario:', error);
@@ -644,6 +674,7 @@ clearAllBtn.addEventListener('click', async () => {
 
         // Signal other tabs that scenarios have changed
         localStorage.setItem('scenarios_updated', new Date().toISOString());
+        triggerPathUpdate(); // Auto-update path
     } catch (error) {
         console.error('Error clearing scenarios:', error);
         updateStatus('Error clearing scenarios. Please try again.');
@@ -693,6 +724,7 @@ async function resyncBackendScenarios() {
     // Signal other tabs that scenarios have changed
     localStorage.setItem('scenarios_updated', new Date().toISOString());
     updateStatus(`Undo successful. ${scenarioHistory.length} scenarios active.`);
+    triggerPathUpdate(); // Auto-update path
 }
 
 /**
@@ -726,5 +758,22 @@ document.addEventListener('keydown', function(event) {
     }
 });
 
+/**
+ * Trigger path update if pathfinding module is available and coordinates are set
+ */
+function triggerPathUpdate() {
+    if (typeof window.findPath === 'function') {
+        const sX = document.getElementById('startX').value;
+        const sY = document.getElementById('startY').value;
+        const eX = document.getElementById('endX').value;
+        const eY = document.getElementById('endY').value;
+        
+        if (sX && sY && eX && eY) {
+            window.findPath();
+        }
+    }
+}
+
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', init);
+})();
