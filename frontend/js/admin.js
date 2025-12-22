@@ -430,6 +430,15 @@ async function applyScenario() {
                 fillOpacity: 0.3,
                 weight: 2
             });
+        } else if (scenarioData.type === 'barrier') {
+            // Vẽ Barrier: Dùng Polyline để đảm bảo độ dày đồng nhất (5px) ở mọi mức zoom
+            // Khắc phục hiện tượng "đầu to đầu nhỏ" hoặc biến dạng khi zoom xa của Polygon
+            visualLayer = L.polyline([p1, p2], {
+                color: scenarioData.color,
+                weight: 5, // Độ dày 5px cố định trên màn hình
+                opacity: 0.8,
+                lineCap: 'square' // Đầu vuông cho giống bức tường
+            });
         } else {
             // Vẽ Chặn đường: Hình chữ nhật
             visualLayer = L.rectangle(clickPoints, { 
@@ -519,6 +528,13 @@ function getScenarioData(scenario) {
             threshold: 50,
             // Giữ nguyên màu đỏ cảnh báo, hoặc dùng màu đỏ cam sáng hơn (#ef4444 là ok)
             color: '#ef4444' 
+        },
+        'barrier': {
+            name: 'Barrier',
+            type: 'barrier',
+            penalty: 10000,
+            threshold: 5, // Độ rộng 5 pixel
+            color: '#b91c1c' // Màu đỏ đậm
         }
     };
     
@@ -580,6 +596,16 @@ async function loadAndDrawScenarios() {
                     fillColor: scenarioData.color,
                     fillOpacity: 0.3,
                     weight: 2
+                });
+            } else if (scenario.scenario_type === 'barrier') {
+                // Re-draw Barrier as Polyline
+                const p1 = scenario.line_start;
+                const p2 = scenario.line_end;
+                visualLayer = L.polyline([[p1.lat, p1.lng], [p2.lat, p2.lng]], { 
+                    color: scenarioData.color, 
+                    weight: 5, 
+                    opacity: 0.8,
+                    lineCap: 'square'
                 });
             } else { // block
                 visualLayer = L.rectangle(clickPoints, { 

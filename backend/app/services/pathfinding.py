@@ -111,7 +111,9 @@ class PathfindingService:
                 proj_y = p1[1] + t * dy
                 
                 dist = math.sqrt((x - proj_x)**2 + (y - proj_y)**2)
-                candidates.append((u, v, (proj_x, proj_y), dist, t))
+                # Chỉ xem xét các cạnh có hình chiếu đủ gần (khoảng cách <= 60)
+                if dist <= 600:
+                    candidates.append((u, v, (proj_x, proj_y), dist, t))
         
         # Sắp xếp theo khoảng cách và lấy top k
         candidates.sort(key=lambda x: x[3])
@@ -250,7 +252,12 @@ class PathfindingService:
         if vehicle_type in self.graphs:
             current_weights = self.graphs[vehicle_type]['current_weights']
             if (u, v) in current_weights:
-                current_weights[(u, v)] *= penalty
+                # Nếu penalty lớn (ám chỉ Block), đảm bảo trọng số đủ lớn để chặn
+                # Ngưỡng Blocked là 100,000. Ta đặt tối thiểu 200,000 cho chắc chắn.
+                if penalty >= 1000:
+                    current_weights[(u, v)] = max(current_weights[(u, v)] * penalty, 400001)
+                else:
+                    current_weights[(u, v)] *= penalty
 
     def reset_weights_in_ram(self):
         """
@@ -477,18 +484,17 @@ class PathfindingService:
                     # Nối điểm ảo với điểm chiếu (2 chiều)
                     virtual_node = start_node_id if req['type'] == 'start' else end_node_id
                     w = req['dist']
-                    
-                    if vehicle_type == 'foot':
-                        w *= 1.25
-                    if vehicle_type == 'car':
-                        w *= 10
-                    
+
+
                     # Áp dụng kịch bản cho cạnh ảo
                     p_start = graph['nodes'][virtual_node]
                     p_end = graph['nodes'][proj_node_id]
                     penalty = scenario_service.calculate_segment_penalty(p_start, p_end)
                     w_final = w * penalty
-
+                    if vehicle_type == 'foot':
+                        w_final *= 1.25
+                    if vehicle_type == 'car':
+                        w_final *= 10
                     for (n1, n2) in [(virtual_node, proj_node_id), (proj_node_id, virtual_node)]:
                         graph['adj_list'][n1].append(n2)
                         graph['original_weights'][(n1, n2)] = w

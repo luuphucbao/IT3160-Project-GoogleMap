@@ -18,7 +18,8 @@ class ScenarioService:
         pathfinding_service, 
         line_p1: Tuple[float, float], 
         line_p2: Tuple[float, float], 
-        threshold: float
+        threshold: float,
+        scenario_type: str = 'block'
     ) -> Tuple[Dict[str, List[Tuple[int, int]]], List[Dict]]:
         """
         Tính toán các cạnh bị ảnh hưởng và thực hiện biến đổi đồ thị (nếu cần).
@@ -41,6 +42,10 @@ class ScenarioService:
             # Copy keys để tránh lỗi runtime nếu dictionary thay đổi kích thước khi split
             edges_list = list(edges_dict.keys())
             for (u, v) in edges_list:
+                
+                # Bỏ qua các cạnh nối với đỉnh ảo (Start/End) nếu chúng đang tồn tại
+                if u in [-1, -2] or v in [-1, -2]:
+                    continue
                 
                 # Kiểm tra cạnh còn tồn tại không (vì có thể bị xóa do split cạnh nghịch trước đó)
                 if (u, v) not in edges_dict:
@@ -146,11 +151,96 @@ class ScenarioService:
                                 if (v, current_u) in pathfinding_service.graphs[v_type]['current_weights']:
                                     affected_edges_by_type[v_type].append((v, current_u))
 
-                else:
+                elif scenario_type == 'barrier':
+                    # --- TRƯỜNG HỢP BARRIER (HÌNH CHỮ NHẬT XOAY) ---
+                    # Vùng ảnh hưởng: HCN xoay quanh trục p1-p2, rộng 5 pixel
+                    width = 5.0
+                    
+                    # 1. Tính toán 4 đỉnh của Barrier
+                    barrier_poly = self._get_rotated_rect_corners(line_p1, line_p2, width)
+                    
+                    # 2. Tìm giao điểm của cạnh (u,v) với 4 cạnh của Barrier
+                    ts = self._get_polygon_intersections(p1, p2, barrier_poly)
+                    
+                    dx = p2[0] - p1[0]
+                    dy = p2[1] - p1[1]
+                    
+                    current_u = u
+                    
+                    for t_val in ts:
+                        ix = p1[0] + t_val * dx
+                        iy = p1[1] + t_val * dy
+                        
+                        change = pathfinding_service.split_edge(current_u, v, (ix, iy), v_type)
+                        structural_changes.append(change)
+                        temp_id = change['temp_id']
+                        
+                        # Kiểm tra đoạn (current_u, temp_id) có nằm trong Barrier không
+                        m1 = pathfinding_service.graphs[v_type]['nodes'][current_u]
+                        m2 = pathfinding_service.graphs[v_type]['nodes'][temp_id]
+                        mid_pt = ((m1[0]+m2[0])/2, (m1[1]+m2[1])/2)
+                        
+                        if self._is_point_in_rotated_rect(mid_pt, line_p1, line_p2, width):
+                            affected_edges_by_type[v_type].append((current_u, temp_id))
+                            if (temp_id, current_u) in pathfinding_service.graphs[v_type]['current_weights']:
+                                affected_edges_by_type[v_type].append((temp_id, current_u))
+                        
+                        current_u = temp_id
+                    
+                    # Kiểm tra đoạn cuối
+                    m1 = pathfinding_service.graphs[v_type]['nodes'][current_u]
+                    m2 = pathfinding_service.graphs[v_type]['nodes'][v]
+                    mid_pt = ((m1[0]+m2[0])/2, (m1[1]+m2[1])/2)
+                    if self._is_point_in_rotated_rect(mid_pt, line_p1, line_p2, width):
+                        affected_edges_by_type[v_type].append((current_u, v))
+                        if (v, current_u) in pathfinding_service.graphs[v_type]['current_weights']:
+                            affected_edges_by_type[v_type].append((v, current_u))
+
+                else: # scenario_type == 'block' (AABB)
                     # --- TRƯỜNG HỢP CHẶN ĐƯỜNG (HÌNH CHỮ NHẬT) ---
                     # line_p1, line_p2 là 2 điểm chéo của hình chữ nhật
-                    if self._segment_intersects_rectangle(p1, p2, line_p1, line_p2):
-                        affected_edges_by_type[v_type].append((u, v))
+                    
+                    # Tìm các điểm giao cắt với biên hình chữ nhật
+                    ts = self._get_rectangle_intersections(p1, p2, line_p1, line_p2)
+                    
+                    dx = p2[0] - p1[0]
+                    dy = p2[1] - p1[1]
+                    
+                    current_u = u
+                    current_v = v
+                    
+                    for t_val in ts:
+                        # Tính toạ độ giao điểm
+                        ix = p1[0] + t_val * dx
+                        iy = p1[1] + t_val * dy
+                        
+                        # Gọi PathfindingService để split
+                        change = pathfinding_service.split_edge(current_u, current_v, (ix, iy), v_type)
+                        structural_changes.append(change)
+                        
+                        temp_id = change['temp_id']
+                        
+                        # Kiểm tra đoạn vừa tạo (current_u, temp_id) có nằm trong HCN không
+                        m1 = pathfinding_service.graphs[v_type]['nodes'][current_u]
+                        m2 = pathfinding_service.graphs[v_type]['nodes'][temp_id]
+                        mid_pt = ((m1[0]+m2[0])/2, (m1[1]+m2[1])/2)
+                        
+                        if self._is_point_in_rect(mid_pt, line_p1, line_p2):
+                            affected_edges_by_type[v_type].append((current_u, temp_id))
+                            if (temp_id, current_u) in pathfinding_service.graphs[v_type]['current_weights']:
+                                affected_edges_by_type[v_type].append((temp_id, current_u))
+                        
+                        current_u = temp_id
+                    
+                    # Kiểm tra đoạn cuối cùng (current_u, v)
+                    m1 = pathfinding_service.graphs[v_type]['nodes'][current_u]
+                    m2 = pathfinding_service.graphs[v_type]['nodes'][v]
+                    mid_pt = ((m1[0]+m2[0])/2, (m1[1]+m2[1])/2)
+                    
+                    if self._is_point_in_rect(mid_pt, line_p1, line_p2):
+                        affected_edges_by_type[v_type].append((current_u, v))
+                        if (v, current_u) in pathfinding_service.graphs[v_type]['current_weights']:
+                            affected_edges_by_type[v_type].append((v, current_u))
                 
         return affected_edges_by_type, structural_changes
     
@@ -201,12 +291,127 @@ class ScenarioService:
                 # Hình tròn (Mưa)
                 if self._segment_intersects_circle(p1, p2, s_p1, threshold):
                     penalty_multiplier *= p_val
+            elif scenario.get('scenario_type') == 'barrier':
+                # Barrier (HCN xoay)
+                if self._segment_intersects_rotated_rect(p1, p2, s_p1, s_p2, 5.0):
+                    penalty_multiplier *= p_val
             else:
                 # Hình chữ nhật (Chặn)
                 if self._segment_intersects_rectangle(p1, p2, s_p1, s_p2):
                     penalty_multiplier *= p_val
                     
         return penalty_multiplier
+
+    def _get_rotated_rect_corners(self, p1, p2, width):
+        """Tính 4 đỉnh của HCN xoay quanh trục p1-p2 với độ rộng width"""
+        dx = p2[0] - p1[0]
+        dy = p2[1] - p1[1]
+        length = math.sqrt(dx*dx + dy*dy)
+        if length == 0: return [p1, p1, p1, p1]
+        
+        # Vector đơn vị vuông góc (-dy, dx)
+        nx = -dy / length
+        ny = dx / length
+        
+        half_w = width / 2
+        ox = nx * half_w
+        oy = ny * half_w
+        
+        c1 = (p1[0] + ox, p1[1] + oy)
+        c2 = (p2[0] + ox, p2[1] + oy)
+        c3 = (p2[0] - ox, p2[1] - oy)
+        c4 = (p1[0] - ox, p1[1] - oy)
+        return [c1, c2, c3, c4]
+
+    def _get_polygon_intersections(self, p1, p2, poly_points) -> List[float]:
+        """Tìm các giao điểm t của đoạn p1-p2 với các cạnh của đa giác"""
+        ts = []
+        n = len(poly_points)
+        for i in range(n):
+            edge_p1 = poly_points[i]
+            edge_p2 = poly_points[(i + 1) % n]
+            
+            # Tìm giao điểm giữa đoạn thẳng (p1, p2) và cạnh đa giác (edge_p1, edge_p2)
+            # Sử dụng công thức vector
+            x1, y1 = p1
+            x2, y2 = p2
+            x3, y3 = edge_p1
+            x4, y4 = edge_p2
+            
+            denom = (y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1)
+            if denom != 0:
+                ua = ((x4 - x3) * (y1 - y3) - (y4 - y3) * (x1 - x3)) / denom
+                ub = ((x2 - x1) * (y1 - y3) - (y2 - y1) * (x1 - x3)) / denom
+                
+                # ua là tham số t trên đoạn p1-p2
+                # ub là tham số trên cạnh đa giác
+                if 0 < ua < 1 and 0 <= ub <= 1:
+                    ts.append(ua)
+        return sorted(list(set(ts)))
+
+    def _is_point_in_rotated_rect(self, p, axis_p1, axis_p2, width):
+        """Kiểm tra điểm p có nằm trong HCN xoay quanh axis_p1-axis_p2"""
+        # Chiếu p lên trục dọc và trục ngang
+        vx, vy = axis_p2[0] - axis_p1[0], axis_p2[1] - axis_p1[1]
+        len_sq = vx*vx + vy*vy
+        if len_sq == 0: return False
+        
+        px, py = p[0] - axis_p1[0], p[1] - axis_p1[1]
+        
+        # Tích vô hướng dọc trục (để kiểm tra độ dài)
+        dot_long = px * vx + py * vy
+        # Tích vô hướng ngang trục (để kiểm tra độ rộng) - vector vuông góc (-vy, vx)
+        dot_lat = px * (-vy) + py * vx
+        
+        # Điều kiện: 0 <= projection_dọc <= length^2  VÀ  |projection_ngang| <= width/2 * length
+        length = math.sqrt(len_sq)
+        return (0 <= dot_long <= len_sq) and (abs(dot_lat) <= (width/2) * length)
+
+    def _segment_intersects_rotated_rect(self, p1, p2, axis_p1, axis_p2, width):
+        """Kiểm tra đoạn thẳng p1-p2 có cắt hoặc nằm trong Barrier không"""
+        # 1. Kiểm tra điểm đầu/cuối
+        if self._is_point_in_rotated_rect(p1, axis_p1, axis_p2, width) or \
+           self._is_point_in_rotated_rect(p2, axis_p1, axis_p2, width):
+            return True
+            
+        # 2. Kiểm tra cắt cạnh biên
+        poly = self._get_rotated_rect_corners(axis_p1, axis_p2, width)
+        ts = self._get_polygon_intersections(p1, p2, poly)
+        return len(ts) > 0
+
+    def _get_rectangle_intersections(self, p1, p2, r1, r2) -> List[float]:
+        """Tìm các giá trị t (0 < t < 1) mà tại đó đoạn thẳng p1-p2 cắt biên hình chữ nhật r1-r2"""
+        ts = []
+        min_x = min(r1[0], r2[0])
+        max_x = max(r1[0], r2[0])
+        min_y = min(r1[1], r2[1])
+        max_y = max(r1[1], r2[1])
+        
+        dx = p2[0] - p1[0]
+        dy = p2[1] - p1[1]
+        
+        def check(val, start, delta, other_start, other_delta, min_o, max_o):
+            if delta == 0: return
+            t = (val - start) / delta
+            if 0 < t < 1:
+                other = other_start + t * other_delta
+                if min_o - 1e-9 <= other <= max_o + 1e-9:
+                    ts.append(t)
+
+        check(min_x, p1[0], dx, p1[1], dy, min_y, max_y)
+        check(max_x, p1[0], dx, p1[1], dy, min_y, max_y)
+        check(min_y, p1[1], dy, p1[0], dx, min_x, max_x)
+        check(max_y, p1[1], dy, p1[0], dx, min_x, max_x)
+        
+        return sorted(list(set(ts)))
+
+
+    def _is_point_in_rect(self, p, r1, r2):
+        min_x = min(r1[0], r2[0])
+        max_x = max(r1[0], r2[0])
+        min_y = min(r1[1], r2[1])
+        max_y = max(r1[1], r2[1])
+        return min_x <= p[0] <= max_x and min_y <= p[1] <= max_y
 
     def _segment_intersects_circle(self, p1, p2, center, radius):
         """Kiểm tra đoạn thẳng p1-p2 có cắt hình tròn (center, radius) không"""

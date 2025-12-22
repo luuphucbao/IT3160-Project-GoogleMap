@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from typing import List
+from pydantic import BaseModel
 
 # Import schemas
 from app.schemas.scenario import ScenarioRequest, ScenarioResponse, ScenarioItem
@@ -10,14 +11,42 @@ from app.dependencies.access_control import require_admin
 
 router = APIRouter(prefix="/scenarios", tags=["Scenarios"])
 
-@router.get("/", response_model=List[ScenarioItem])
+# --- Local Models to support 'barrier' type without editing schemas/scenario.py ---
+class PointModel(BaseModel):
+    lat: float
+    lng: float
+
+class ScenarioRequestLocal(BaseModel):
+    scenario_type: str
+    line_start: PointModel
+    line_end: PointModel
+    penalty_weight: float
+    threshold: float
+
+class ScenarioResponseLocal(BaseModel):
+    message: str
+    affected_edges: int
+    scenario_type: str
+
+class ScenarioItemLocal(BaseModel):
+    id: int
+    active: bool
+    scenario_type: str
+    line_start: PointModel
+    line_end: PointModel
+    penalty_weight: float
+    threshold: float
+    affected_edges: int
+# --------------------------------------------------------------------------------
+
+@router.get("/", response_model=List[ScenarioItemLocal])
 async def get_scenarios():
     """Lấy danh sách kịch bản đang chạy (từ RAM)"""
     return get_scenario_service().active_scenarios
 
-@router.post("/", response_model=ScenarioResponse)
+@router.post("/", response_model=ScenarioResponseLocal)
 async def create_scenario(
-    request: ScenarioRequest,
+    request: ScenarioRequestLocal,
     _=Depends(require_admin)
 ):
     """
@@ -34,7 +63,8 @@ async def create_scenario(
         pathfinding_service=pf_service,
         line_p1=(request.line_start.lng, request.line_start.lat),
         line_p2=(request.line_end.lng, request.line_end.lat),
-        threshold=request.threshold
+        threshold=request.threshold,
+        scenario_type=request.scenario_type
     )
     
     # Bước 2: Cập nhật trọng số ngay lập tức vào RAM
@@ -49,7 +79,7 @@ async def create_scenario(
     
     print(f"✅ Applied scenario {request.scenario_type} to {total_affected} edges.")
     
-    return ScenarioResponse(
+    return ScenarioResponseLocal(
         message="Scenario applied successfully (In-Memory)",
         affected_edges=total_affected,
         scenario_type=request.scenario_type
@@ -100,7 +130,8 @@ async def delete_scenario(
             pf_service,
             (req['line_start']['lng'], req['line_start']['lat']),
             (req['line_end']['lng'], req['line_end']['lat']),
-            req['threshold']
+            req['threshold'],
+            scenario_type=req['scenario_type']
         )
         
         # Cập nhật lại thông tin mới vào scenario trong list
